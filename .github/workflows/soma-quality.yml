@@ -1,6 +1,6 @@
-# Workflow SOMA Quality — à copier dans .github/workflows/ de chaque projet.
-# Prérequis : soma-smart/.github doit contenir soma-ci.yml
-# Documentation : https://github.com/soma-smart/doc-soma-manifest/blob/main/docs/IA.md
+# Workflow SOMA Quality — Conventional Commits
+# Valide que tous les commits de la PR respectent la convention Conventional Commits.
+# Documentation : https://www.conventionalcommits.org/fr/v1.0.0/
 
 name: SOMA Quality
 
@@ -10,9 +10,44 @@ on:
     branches: [main]
 
 jobs:
-  soma-quality:
+  conventional-commits:
     name: Conventional Commits
-    uses: soma-smart/.github/.github/workflows/soma-ci.yml@main
-    with:
-      base_sha: ${{ github.event.pull_request.base.sha }}
-      head_sha: ${{ github.sha }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Valider les messages de commit
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          PATTERN="^(feat|fix|docs|refactor|test|ci|chore|perf)(\(.+\))?(!)?: .{1,100}"
+          FAILED=0
+
+          while IFS= read -r commit_msg; do
+            if printf '%s\n' "$commit_msg" | grep -qE "^(Merge|Revert|fixup!|squash!)"; then
+              continue
+            fi
+
+            if ! printf '%s\n' "$commit_msg" | grep -qE "$PATTERN"; then
+              echo "::error::Message invalide : \"$commit_msg\""
+              echo "::error::Format attendu : <type>[scope]: <description>"
+              echo "::error::Types autorisés : feat | fix | docs | refactor | test | ci | chore | perf"
+              echo "::error::Exemples : feat: ajout auth OAuth | fix(api): timeout /users | docs: README"
+              FAILED=1
+            fi
+          done < <(git log "$BASE_SHA".."$HEAD_SHA" --format="%s")
+
+          if [ "$FAILED" -eq 1 ]; then
+            echo ""
+            echo "❌ Des commits ne respectent pas la convention SOMA."
+            echo "   Référence : https://www.conventionalcommits.org/fr/v1.0.0/"
+            echo "   Hook local : bash /chemin/vers/doc-soma-manifest/templates/install-hooks.sh"
+            exit 1
+          fi
+
+          echo "✓ Tous les commits respectent la convention Conventional Commits."
