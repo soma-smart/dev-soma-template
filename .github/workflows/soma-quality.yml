@@ -1,0 +1,18 @@
+# Workflow SOMA Quality — à copier dans .github/workflows/ de chaque projet.
+# Prérequis : soma-smart/.github doit contenir soma-ci.yml
+# Documentation : https://github.com/soma-smart/doc-soma-manifest/blob/main/docs/IA.md
+
+name: SOMA Quality
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+
+jobs:
+  soma-quality:
+    name: Conventional Commits
+    uses: soma-smart/.github/.github/workflows/soma-ci.yml@main
+    with:
+      base_sha: ${{ github.event.pull_request.base.sha }}
+      head_sha: ${{ github.sha }}
