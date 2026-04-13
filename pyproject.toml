@@ -8,7 +8,7 @@ dependencies = []
 dev = [
     "bandit>=1.8",
     "mypy>=1.15",
-    "pip-audit>=2.9",
+    "pip-audit>=2.10.0",
     "pytest>=8.0",
     "ruff>=0.9",
 ]
