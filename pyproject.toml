@@ -6,7 +6,7 @@ dependencies = []
 
 [dependency-groups]
 dev = [
-    "bandit>=1.8",
+    "bandit>=1.9.4",
     "mypy>=1.15",
     "pip-audit>=2.9",
     "pytest>=8.0",
