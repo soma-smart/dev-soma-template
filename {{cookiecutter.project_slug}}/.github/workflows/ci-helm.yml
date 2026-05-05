@@ -1,0 +1,36 @@
+name: CI Helm
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "helm/**"
+      - ".github/workflows/ci-helm.yml"
+
+jobs:
+  helm:
+    name: helm lint + kubeconform + polaris
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - name: helm lint
+        run: helm lint helm/{{ cookiecutter.project_slug }}
+      - name: helm template (default values)
+        run: helm template t helm/{{ cookiecutter.project_slug }} --set secrets.dbUrl=postgresql+asyncpg://test/test > /tmp/manifests-default.yaml
+      - name: helm template (prod overlay)
+        run: helm template t helm/{{ cookiecutter.project_slug }} -f helm/{{ cookiecutter.project_slug }}/values-prod.yaml --set secrets.dbUrl=postgresql+asyncpg://test/test > /tmp/manifests-prod.yaml
+      - name: Install kubeconform
+        run: |
+          curl -L https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz | tar xz
+          sudo mv kubeconform /usr/local/bin/
+      - name: kubeconform default
+        run: kubeconform -strict -summary -ignore-missing-schemas /tmp/manifests-default.yaml
+      - name: kubeconform prod
+        run: kubeconform -strict -summary -ignore-missing-schemas /tmp/manifests-prod.yaml
+      - name: Install polaris
+        run: |
+          curl -L https://github.com/FairwindsOps/polaris/releases/latest/download/polaris_linux_amd64.tar.gz | tar xz
+          sudo mv polaris /usr/local/bin/
+      - name: polaris audit (best practices)
+        run: polaris audit --audit-path /tmp/manifests-prod.yaml --format=pretty || true

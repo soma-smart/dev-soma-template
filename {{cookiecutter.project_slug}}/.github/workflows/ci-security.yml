@@ -1,0 +1,24 @@
+name: CI Security
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  security:
+    name: Bandit + pip-audit + Gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: astral-sh/setup-uv@v7
+        with: { enable-caching: true }
+      - run: uv sync --frozen --group dev
+      - name: Bandit (SAST, high severity / high confidence)
+        run: uv run bandit -r src/ --severity-level high --confidence-level high
+      - name: pip-audit (dependency vulnerabilities)
+        run: uv run pip-audit
+      - name: Gitleaks (secrets in history and diff)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${% raw %}{{ secrets.GITHUB_TOKEN }}{% endraw %}
