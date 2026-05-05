@@ -1,0 +1,28 @@
+{
+  "project_name": "My SOMA Service",
+  "project_slug": "{{ cookiecutter.project_name|lower|replace(' ', '-')|replace('_', '-') }}",
+  "package_name": "{{ cookiecutter.project_slug|replace('-', '_') }}",
+  "project_description": "Short one-line description of the service.",
+  "author_name": "SOMA",
+  "author_email": "team@soma-smart.com",
+  "python_version": ["3.13", "3.14"],
+  "database": ["postgres", "sqlite", "none"],
+  "include_helm": ["yes", "no"],
+  "include_otel": ["yes", "no"],
+  "include_cli": ["no", "yes"],
+  "license": ["proprietary", "MIT", "Apache-2.0"],
+  "__prompts__": {
+    "project_name": "Human-readable project name",
+    "project_slug": "Folder + repo slug (kebab-case, derived)",
+    "package_name": "Importable Python package (snake_case, derived)",
+    "project_description": "One-liner description",
+    "author_name": "Author or team",
+    "author_email": "Contact email",
+    "python_version": "Target Python version",
+    "database": "Database engine: postgres (full), sqlite (light), none (no example)",
+    "include_helm": "Ship a Helm chart for Kubernetes deployment?",
+    "include_otel": "Wire OpenTelemetry instrumentations?",
+    "include_cli": "Add a presentation/cli/ layer?",
+    "license": "Project license"
+  }
+}

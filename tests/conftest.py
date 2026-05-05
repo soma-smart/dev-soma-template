@@ -1,2 +1,1 @@
-# conftest.py — configuration pytest commune
-# Ajouter les fixtures partagées ici
+"""Shared pytest configuration for the template's bake tests."""

@@ -52,3 +52,7 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+
+# Cookiecutter local bake outputs
+/tmp-bake/
+/.bake/
