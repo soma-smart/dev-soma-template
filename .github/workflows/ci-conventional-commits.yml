@@ -1,0 +1,37 @@
+name: Conventional Commits
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+
+jobs:
+  conventional-commits:
+    name: Validate commit messages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Check messages
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          PATTERN="^(feat|fix|docs|refactor|test|ci|chore|perf)(\(.+\))?(!)?: .{1,100}"
+          FAILED=0
+          while IFS= read -r commit_msg; do
+            if printf '%s\n' "$commit_msg" | grep -qE "^(Merge|Revert|fixup!|squash!)"; then
+              continue
+            fi
+            if ! printf '%s\n' "$commit_msg" | grep -qE "$PATTERN"; then
+              echo "::error::Invalid: \"$commit_msg\""
+              FAILED=1
+            fi
+          done < <(git log "$BASE_SHA".."$HEAD_SHA" --format="%s")
+          if [ "$FAILED" -eq 1 ]; then
+            echo ""
+            echo "Conventional Commits rule:"
+            echo "  <type>(<scope>)?: <description>"
+            echo "  type ∈ {feat, fix, docs, refactor, test, ci, chore, perf}"
+            exit 1
+          fi
