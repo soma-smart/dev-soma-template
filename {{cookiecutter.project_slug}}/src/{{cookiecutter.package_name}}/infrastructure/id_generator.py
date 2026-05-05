@@ -11,4 +11,5 @@ class Uuid4IdGenerator(IdGenerator):
     """``IdGenerator`` returning random UUID4 values."""
 
     def new(self) -> UUID:
+        """Return a fresh UUID4."""
         return uuid4()

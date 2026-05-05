@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 
-from fastapi import Depends, Request
+from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from {{ cookiecutter.package_name }}.application.clock import Clock
@@ -24,14 +24,17 @@ def get_settings_dependency() -> Settings:
 
 
 def get_clock() -> Clock:
+    """Inject the production ``Clock``."""
     return build_clock()
 
 
 def get_id_generator() -> IdGenerator:
+    """Inject the production ``IdGenerator``."""
     return build_id_generator()
 
 
 def get_random_source() -> RandomSource:
+    """Inject the production ``RandomSource``."""
     return build_random_source()
 
 

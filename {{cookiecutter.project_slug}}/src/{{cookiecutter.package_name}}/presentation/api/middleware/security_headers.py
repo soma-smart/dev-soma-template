@@ -25,6 +25,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         self.headers = {**DEFAULT_HEADERS, **(headers or {})}
 
     async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+        """Propagate the request and decorate the response with security headers."""
         response = await call_next(request)
         for name, value in self.headers.items():
             response.headers.setdefault(name, value)

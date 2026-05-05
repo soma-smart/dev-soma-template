@@ -1,0 +1,75 @@
+# Pre-commit configuration for the generated project.
+#
+# The aggregated quality script (scripts/checks/quality.sh) is the single
+# source of truth invoked by pre-commit, by .claude/hooks/pre-commit-gate.sh
+# and by ci-quality.yml. If you add or change a check, do it in that script.
+
+default_language_version:
+  python: python{{ cookiecutter.python_version }}
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: detect-private-key
+      - id: check-added-large-files
+      - id: check-merge-conflict
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.12
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/zricethezav/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: v4.1.0
+    hooks:
+      - id: commitizen
+        stages: [commit-msg]
+
+  - repo: local
+    hooks:
+      - id: no-third-party-in-domain
+        name: no third-party imports in domain layer
+        entry: uv run python scripts/checks/no_third_party_in_domain.py src/
+        language: system
+        pass_filenames: false
+        files: ^src/.*/domain/.*\.py$
+
+      - id: no-naive-datetime
+        name: no naive datetime.now() outside tests
+        entry: uv run python scripts/checks/no_naive_datetime.py src/
+        language: system
+        pass_filenames: false
+        files: ^src/.*\.py$
+
+      - id: no-float-in-domain
+        name: no float in domain layer
+        entry: uv run python scripts/checks/no_float_in_domain.py src/
+        language: system
+        pass_filenames: false
+        files: ^src/.*/domain/.*\.py$
+
+      - id: test-naming
+        name: GIVEN/WHEN/THEN test format
+        entry: uv run python scripts/checks/test_naming.py tests/
+        language: system
+        pass_filenames: false
+        files: ^tests/.*\.py$
+
+      - id: pytest-unit-pre-push
+        name: pytest unit (pre-push only)
+        entry: uv run pytest -m unit -x -q
+        language: system
+        pass_filenames: false
+        stages: [pre-push]

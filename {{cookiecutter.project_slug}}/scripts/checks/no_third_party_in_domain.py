@@ -43,13 +43,13 @@ def _imports(file: Path) -> list[tuple[int, str]]:
         if isinstance(node, ast.Import):
             for alias in node.names:
                 imports.append((node.lineno, alias.name.split(".")[0]))
-        elif isinstance(node, ast.ImportFrom):
-            if node.module and node.level == 0:
-                imports.append((node.lineno, node.module.split(".")[0]))
+        elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
+            imports.append((node.lineno, node.module.split(".")[0]))
     return imports
 
 
 def main(argv: list[str]) -> int:
+    """CLI entry point."""
     src_root = Path(argv[1]) if len(argv) > 1 else Path("src")
     if not src_root.is_dir():
         sys.stderr.write(f"src directory not found: {src_root}\n")

@@ -11,26 +11,40 @@ import ast
 import sys
 from pathlib import Path
 
+UTCNOW_MSG = "'datetime.utcnow()' is forbidden (naive). Use 'datetime.now(tz=UTC)' or the Clock abstraction."
+NAIVE_NOW_MSG = "naive 'datetime.now()' is forbidden. Pass 'tz=UTC' or use the Clock abstraction."
+
 
 def _scan(file: Path) -> list[str]:
+    """Return the violation messages found in ``file``.
+
+    Matches only calls whose receiver is the literal name ``datetime``
+    (e.g. ``datetime.now()``, ``datetime.utcnow()``). It deliberately does
+    not match ``clock.now()`` or any other ``something.now()`` — those use
+    the Clock abstraction or a domain-specific API.
+    """
     issues: list[str] = []
     tree = ast.parse(file.read_text(encoding="utf-8"), filename=str(file))
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
         func = node.func
-        if isinstance(func, ast.Attribute):
-            if func.attr == "utcnow":
-                issues.append(f"{file}:{node.lineno}: 'datetime.utcnow()' is forbidden (naive). Use 'datetime.now(tz=UTC)' or the Clock abstraction.")
-            elif func.attr == "now":
-                # datetime.now() with no kwargs and no tz positional arg is naive.
-                has_tz = any(kw.arg == "tz" for kw in node.keywords) or bool(node.args)
-                if not has_tz:
-                    issues.append(f"{file}:{node.lineno}: naive 'datetime.now()' is forbidden. Pass 'tz=UTC' or use the Clock abstraction.")
+        if not isinstance(func, ast.Attribute):
+            continue
+        receiver = func.value
+        if not (isinstance(receiver, ast.Name) and receiver.id == "datetime"):
+            continue
+        if func.attr == "utcnow":
+            issues.append(f"{file}:{node.lineno}: {UTCNOW_MSG}")
+        elif func.attr == "now":
+            has_tz = any(kw.arg == "tz" for kw in node.keywords) or bool(node.args)
+            if not has_tz:
+                issues.append(f"{file}:{node.lineno}: {NAIVE_NOW_MSG}")
     return issues
 
 
 def main(argv: list[str]) -> int:
+    """CLI entry point."""
     targets = [Path(p) for p in argv[1:]] or [Path("src")]
     files: list[Path] = []
     for t in targets:

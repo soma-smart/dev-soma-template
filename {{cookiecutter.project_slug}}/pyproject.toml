@@ -17,6 +17,7 @@ dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
     "pydantic>=2.10",
+    "pydantic[email]>=2.10",
     "pydantic-settings>=2.7",
     "structlog>=24.4",
     "sqlalchemy[asyncio]>=2.0",
@@ -65,12 +66,43 @@ target-version = "py{{ cookiecutter.python_version|replace('.', '') }}"
 src = ["src", "tests"]
 
 [tool.ruff.lint]
-# Hardened in phase D2. For now we keep the base ruleset to let phase B compile.
-select = ["E", "F", "I", "B", "S", "UP", "RUF", "PTH", "TID", "T20", "ERA"]
+# D2 ruleset.
+select = [
+    "E", "F", "I", "B", "S",      # base
+    "UP",                          # pyupgrade
+    "ANN",                         # annotations
+    "ARG",                         # unused args
+    "RET",                         # explicit returns
+    "SIM",                         # simplifications
+    "TC",                          # TYPE_CHECKING imports (renamed from TCH in ruff 0.15)
+    "PTH",                         # pathlib
+    "T20",                         # no print
+    "ERA",                         # no commented-out code
+    "RUF",                         # ruff-specific
+    "C90",                         # cyclomatic
+    "D",                           # docstrings (Google)
+    "N",                           # PEP8 naming
+    "TID",                         # tidy imports
+    "PL",                          # pylint subset
+]
+ignore = [
+    "D100",     # Missing docstring in public module — module name is enough
+    "D104",     # Missing docstring in public package
+    "D105",     # Missing docstring in magic method
+    "D107",     # Missing docstring in __init__
+    "D203",     # 1 blank line before class docstring (conflicts with D211)
+    "D213",     # Multi-line summary on second line (conflicts with D212)
+    "ANN401",   # Any allowed at boundaries (parsing, structlog kwargs)
+    "B008",     # Function call in default argument — FastAPI Depends() is idiomatic
+    "TC001",    # TYPE_CHECKING imports — too aggressive, hurts readability
+    "TC002",
+    "TC003",
+]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "ANN", "D"]
+"tests/**" = ["S101", "ANN", "D", "PLR2004", "ARG"]
 "alembic/versions/*" = ["D", "ERA"]
+"scripts/**" = ["T20"]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 # Cross-layer imports are forbidden by Clean Architecture.

@@ -11,4 +11,5 @@ class SystemClock(Clock):
     """Clock backed by the operating system."""
 
     def now(self) -> datetime:
+        """Return the current TZ-aware UTC instant."""
         return datetime.now(tz=UTC)

@@ -7,24 +7,29 @@ and error handlers, and exposes the database session factory through
 
 from __future__ import annotations
 
-from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+{%- if cookiecutter.include_otel == "yes" %}
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.instrumentation.logging import LoggingInstrumentor
+from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
+{%- endif %}
 
 from {{ cookiecutter.package_name }}.infrastructure.config.settings import Settings, get_settings
 from {{ cookiecutter.package_name }}.infrastructure.container import build_database
-from {{ cookiecutter.package_name }}.infrastructure.observability import configure_logging
+from {{ cookiecutter.package_name }}.infrastructure.observability import (
+    configure_logging,
 {%- if cookiecutter.include_otel == "yes" %}
-from {{ cookiecutter.package_name }}.infrastructure.observability import configure_tracing
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
-from opentelemetry.instrumentation.logging import LoggingInstrumentor
+    configure_tracing,
 {%- endif %}
+)
 from {{ cookiecutter.package_name }}.presentation.api.error_handlers import register_error_handlers
 from {{ cookiecutter.package_name }}.presentation.api.middleware import SecurityHeadersMiddleware
+from {{ cookiecutter.package_name }}.presentation.api.v1 import users as users_v1
 
 logger = structlog.get_logger(__name__)
 
@@ -79,6 +84,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def health() -> dict[str, str]:
         return {"status": "ok"}
 
+    app.include_router(users_v1.router)
     return app
 
 

@@ -10,16 +10,21 @@ from __future__ import annotations
 
 from typing import Any
 
+import structlog
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from opentelemetry import trace
-import structlog
 
 from {{ cookiecutter.package_name }}.domain.exceptions.base import DomainError
+from {{ cookiecutter.package_name }}.domain.exceptions.user import UserAlreadyExistsError, UserNotFoundError
+from {{ cookiecutter.package_name }}.domain.value_objects.email import InvalidEmailError
 
 logger = structlog.get_logger(__name__)
 
 ERROR_HTTP_MAPPING: dict[type[DomainError], int] = {
+    InvalidEmailError: 422,
+    UserAlreadyExistsError: status.HTTP_409_CONFLICT,
+    UserNotFoundError: status.HTTP_404_NOT_FOUND,
     # Concrete subclasses are added by their owning bounded context.
     # The mapping is checked by tests/unit/presentation/test_error_mapping.py.
 }
@@ -53,7 +58,7 @@ async def handle_domain_error(request: Request, exc: DomainError) -> JSONRespons
     )
 
 
-async def handle_unexpected_error(request: Request, exc: Exception) -> JSONResponse:
+async def handle_unexpected_error(request: Request, exc: Exception) -> JSONResponse:  # noqa: ARG001
     """Translate any uncaught exception into a 500 with a trace id for support."""
     trace_id = _current_trace_id()
     logger.exception(

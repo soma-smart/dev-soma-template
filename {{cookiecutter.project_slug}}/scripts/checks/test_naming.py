@@ -48,17 +48,16 @@ def _check_function(file: Path, fn: ast.FunctionDef | ast.AsyncFunctionDef, sour
 
     if _is_strict(file):
         if not NAME_RE.match(name):
-            issues.append(f"{file}:{fn.lineno}: '{name}' must match test_given_<context>_when_<action>_then_<expectation>.")
+            issues.append(
+                f"{file}:{fn.lineno}: '{name}' must match test_given_<context>_when_<action>_then_<expectation>."
+            )
         if not (has_given and has_when and has_then):
             issues.append(
                 f"{file}:{fn.lineno}: '{name}' must contain '# GIVEN', '# WHEN' and '# THEN' comments "
                 "(or '# WHEN / THEN' combined when raising)."
             )
-    elif _is_e2e(file):
-        if not (has_when and has_then):
-            issues.append(
-                f"{file}:{fn.lineno}: e2e test '{name}' must contain '# WHEN' and '# THEN' comments."
-            )
+    elif _is_e2e(file) and not (has_when and has_then):
+        issues.append(f"{file}:{fn.lineno}: e2e test '{name}' must contain '# WHEN' and '# THEN' comments.")
     return issues
 
 
@@ -73,6 +72,7 @@ def _scan(file: Path) -> list[str]:
 
 
 def main(argv: list[str]) -> int:
+    """CLI entry point."""
     targets = [Path(p) for p in argv[1:]] or [Path("tests")]
     files: list[Path] = []
     for t in targets:

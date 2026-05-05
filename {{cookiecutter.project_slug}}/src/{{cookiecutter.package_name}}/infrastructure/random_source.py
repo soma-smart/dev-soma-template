@@ -11,10 +11,12 @@ class SystemRandomSource(RandomSource):
     """Cryptographically strong random source backed by ``secrets``."""
 
     def next_int(self, low: int, high: int) -> int:
+        """Return a uniformly distributed integer in ``[low, high]``."""
         if low > high:
             raise ValueError(f"low ({low}) must be <= high ({high})")
         return low + secrets.randbelow(high - low + 1)
 
     def next_float(self) -> float:
+        """Return a uniformly distributed float in ``[0.0, 1.0)``."""
         # 53 bits of randomness mapped to [0.0, 1.0)
         return secrets.randbits(53) / (1 << 53)
