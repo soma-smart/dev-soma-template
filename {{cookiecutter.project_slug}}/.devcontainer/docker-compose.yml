@@ -1,0 +1,74 @@
+# Local development stack: app container + Postgres + Jaeger + OTel collector.
+# Volumes are named so DB state survives container rebuilds.
+# Networking: all services share the default network of this compose file.
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: sleep infinity
+    volumes:
+      - ../..:/workspaces:cached
+    environment:
+      DB_URL: postgresql+asyncpg://app:app@postgres:5432/{{ cookiecutter.package_name }}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      LOG_FORMAT: console
+      LOG_LEVEL: DEBUG
+    depends_on:
+      postgres:
+        condition: service_healthy
+{%- if cookiecutter.include_otel == "yes" %}
+      jaeger:
+        condition: service_started
+      otel-collector:
+        condition: service_started
+{%- endif %}
+    networks:
+      - soma-dev
+
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: {{ cookiecutter.package_name }}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d {{ cookiecutter.package_name }}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    ports:
+      - "5432:5432"
+    networks:
+      - soma-dev
+
+{%- if cookiecutter.include_otel == "yes" %}
+  jaeger:
+    image: jaegertracing/all-in-one:1.62
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"   # Jaeger UI: http://localhost:16686
+    networks:
+      - soma-dev
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.115.0
+    command: ["--config=/etc/otel-collector.yaml"]
+    volumes:
+      - ./otel-collector.yaml:/etc/otel-collector.yaml:ro
+    depends_on:
+      - jaeger
+    networks:
+      - soma-dev
+{%- endif %}
+
+volumes:
+  postgres-data:
+
+networks:
+  soma-dev:
+    driver: bridge

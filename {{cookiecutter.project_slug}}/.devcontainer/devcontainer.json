@@ -1,0 +1,59 @@
+{
+  "name": "{{ cookiecutter.project_name }}",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+
+  "remoteUser": "vscode",
+  "updateRemoteUserUID": true,
+
+  "containerEnv": {
+    "TZ": "Europe/Paris"
+  },
+
+  "mounts": [
+    "source=${localEnv:HOME}/.gitconfig,target=/home/vscode/.gitconfig,type=bind,readonly",
+    "source=${localEnv:HOME}/.ssh,target=/home/vscode/.ssh,type=bind,readonly"
+  ],
+
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "username": "vscode",
+      "uid": "automatic",
+      "gid": "automatic"
+    }
+  },
+
+  "postCreateCommand": "uv sync --group dev && uv run pre-commit install --install-hooks --hook-type commit-msg --hook-type pre-push",
+  "postStartCommand": "uv run alembic upgrade head || true",
+
+  "forwardPorts": [8000, 5432, 16686],
+  "portsAttributes": {
+    "8000": { "label": "FastAPI app" },
+    "5432": { "label": "Postgres" },
+    "16686": { "label": "Jaeger UI" }
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "charliermarsh.ruff",
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "tamasfe.even-better-toml",
+        "redhat.vscode-yaml"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+        "[python]": {
+          "editor.defaultFormatter": "charliermarsh.ruff",
+          "editor.formatOnSave": true,
+          "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit",
+            "source.fixAll.ruff": "explicit"
+          }
+        }
+      }
+    }
+  }
+}

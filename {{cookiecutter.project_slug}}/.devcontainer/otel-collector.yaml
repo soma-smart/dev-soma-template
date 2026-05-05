@@ -1,0 +1,35 @@
+{% if cookiecutter.include_otel == "yes" -%}
+# Minimal OTel collector for local development.
+# Receives OTLP gRPC + HTTP, batches, exports to Jaeger.
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 1s
+
+exporters:
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+  debug:
+    verbosity: basic
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp/jaeger, debug]
+{%- else -%}
+# OTel is not included in this generated project. This file is kept as a
+# placeholder so the docker-compose.yml volume mount does not fail. Re-enable
+# OTel by regenerating with include_otel=yes.
+{%- endif %}

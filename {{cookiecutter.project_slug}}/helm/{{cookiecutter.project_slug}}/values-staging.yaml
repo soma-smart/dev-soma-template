@@ -1,0 +1,23 @@
+replicaCount: 2
+
+config:
+  logFormat: json
+  logLevel: INFO
+  otelTracesSamplerArg: "0.5"
+
+ingress:
+  enabled: true
+  hosts:
+    - host: {{ cookiecutter.project_slug }}.staging.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 4
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
