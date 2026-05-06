@@ -3,20 +3,32 @@
 Pure factory functions (no framework). FastAPI ``Depends`` wraps these in
 ``presentation/api/dependencies/``. CLI entry points and workers can call
 these directly.
+
+Use cases returned by ``build_*_use_case`` go through ``_instrumented``,
+which transparently adds an OTel span and structured logging around
+``execute``. This is where the application/observability boundary lives:
+application code never imports structlog or OpenTelemetry — those concerns
+are bolted on from the outside.
 """
 
 from __future__ import annotations
 
+from typing import Any
+
+import structlog
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from {{ cookiecutter.package_name }}.application.clock import Clock
 from {{ cookiecutter.package_name }}.application.id_generator import IdGenerator
 from {{ cookiecutter.package_name }}.application.random_source import RandomSource
 from {{ cookiecutter.package_name }}.application.repositories.user import UserRepository
+from {{ cookiecutter.package_name }}.application.use_cases.base import UseCase
 from {{ cookiecutter.package_name }}.application.use_cases.create_user import CreateUserUseCase
+from {{ cookiecutter.package_name }}.domain.exceptions.base import DomainError
 from {{ cookiecutter.package_name }}.infrastructure.clock import SystemClock
 from {{ cookiecutter.package_name }}.infrastructure.config.settings import Settings
 from {{ cookiecutter.package_name }}.infrastructure.id_generator import Uuid4IdGenerator
+from {{ cookiecutter.package_name }}.infrastructure.observability.tracing import traced
 from {{ cookiecutter.package_name }}.infrastructure.persistence.session import (
     build_engine,
     build_session_factory,
@@ -57,5 +69,42 @@ def build_create_user_use_case(
     clock: Clock,
     ids: IdGenerator,
 ) -> CreateUserUseCase:
-    """Construct ``CreateUserUseCase`` from its collaborators."""
-    return CreateUserUseCase(users=users, clock=clock, ids=ids)
+    """Construct ``CreateUserUseCase`` with cross-cutting tracing + logging."""
+    use_case = CreateUserUseCase(users=users, clock=clock, ids=ids)
+    return _instrumented(use_case, span_name="create_user")
+
+
+def _instrumented[U: UseCase[Any, Any]](use_case: U, *, span_name: str) -> U:
+    """Wrap a use case's ``execute`` with OTel tracing + structured logging.
+
+    The wrapper:
+      - opens an OTel span named ``span_name`` (no-op when OTel is disabled)
+      - logs ``DomainError`` raises at WARNING with ``code`` and ``context``
+      - logs unexpected exceptions at ERROR with full stack trace
+      - re-raises in all cases — the presentation handler still maps the
+        exception to an HTTP response.
+
+    The wrapped use case is returned unchanged in identity; only its
+    ``execute`` attribute is rebound. Application code never sees this
+    wrapping — it imports nothing from infrastructure.
+    """
+    original_execute = use_case.execute
+    logger = structlog.get_logger(use_case.__class__.__module__)
+
+    @traced(span_name)
+    async def execute(input: Any) -> Any:
+        try:
+            return await original_execute(input)
+        except DomainError as exc:
+            logger.warning(
+                f"{span_name}.domain_error",
+                code=exc.code,
+                context=exc.context,
+            )
+            raise
+        except Exception:
+            logger.exception(f"{span_name}.unexpected_error")
+            raise
+
+    use_case.execute = execute  # type: ignore[method-assign]
+    return use_case

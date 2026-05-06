@@ -14,28 +14,36 @@ Every step that produces logic in `domain/` or `application/` is preceded by a f
 
 ## 1. Domain types
 
-| Need | Where |
-|---|---|
-| New value object (Email, Money, …) | `domain/value_objects/<name>.py` |
-| New entity (User, Order, …) | `domain/entities/<name>.py` |
-| New business exception | `domain/exceptions/<bounded_context>.py` (subclass `DomainError`) |
+| Need | Where | Base class |
+|---|---|---|
+| New value object (Email, Money, …) | `domain/value_objects/<name>.py` | `ValueObject` (marker) + `@dataclass(frozen=True, slots=True)` |
+| New entity (User, Order, …) | `domain/entities/<name>.py` | `Entity[<Name>Id]` |
+| New business exception | `domain/exceptions/<bounded_context>.py` | `DomainError` (set `code` and `default_message`) |
 
 ## 2. Application abstractions
 
-| Need | Where |
-|---|---|
-| New repository | `application/repositories/<entity>.py` (abstract class, name = `EntityRepository` — no `Port` suffix; see `naming-conventions`) |
-| New collaborator | `application/<role>.py` (e.g., `email_sender.py` → class `EmailSender`) |
+| Need | Where | Base class |
+|---|---|---|
+| New repository | `application/repositories/<entity>.py` | `Repository[<Entity>, <Entity>Id]` — `add` + `find_by_id` inherited; declare only entity-specific finders. Name = `<Entity>Repository` (no `Port` suffix; see `naming-conventions`). |
+| New collaborator | `application/<role>.py` | regular `ABC` (e.g., `email_sender.py` → class `EmailSender`) |
 
 ## 3. The use case itself
 
 `application/use_cases/<verb>_<noun>.py`:
 
 ```python
-class <Action><Noun>UseCase:
+from {{ cookiecutter.package_name }}.application.use_cases.base import UseCase
+
+
+class <Action><Noun>UseCase(UseCase[<Action><Noun>Input, <Action><Noun>Output]):
+    """One-line summary, including the exceptions it may raise."""
+
     def __init__(self, *, <collab1>: <Type1>, <collab2>: <Type2>) -> None: ...
+
     async def execute(self, input: <Action><Noun>Input) -> <Action><Noun>Output: ...
 ```
+
+The `UseCase[I, O]` generic surfaces input/output types at the class header. Cross-cutting concerns (tracing, structured logging) are added from the outside by `_instrumented` in `infrastructure/container.py` — never inside the use case.
 
 DTOs in `application/dtos/<noun>.py` as `@dataclass(frozen=True, slots=True)`.
 

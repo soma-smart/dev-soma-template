@@ -18,11 +18,14 @@ when_to_use: Editing src/<pkg>/domain/**, designing entities or value objects, m
 
 ### Value objects (`domain/value_objects/`)
 
-`@dataclass(frozen=True, slots=True)` with validation in `__post_init__`. Equality by value (inherited).
+`@dataclass(frozen=True, slots=True)` inheriting from `ValueObject` (marker, keeps slots intact). Validation lives in `__post_init__`. Equality is value-based (from dataclass).
 
 ```python
+from {{ cookiecutter.package_name }}.domain.value_objects.base import ValueObject
+
+
 @dataclass(frozen=True, slots=True)
-class Money:
+class Money(ValueObject):
     amount: Decimal
     currency: str
 
@@ -35,10 +38,15 @@ class Money:
 
 ### Entities (`domain/entities/`)
 
-Regular Python class (NOT `@dataclass`). Identity attribute named `id`. `__eq__` and `__hash__` based on `id` only.
+Inherit from `Entity[TId]`. `__eq__` / `__hash__` are derived from `(type, id)` — you only set attributes in `__init__`. Mutations through named methods (`order.cancel()`), never direct attribute assignment.
 
 ```python
-class Order:
+from {{ cookiecutter.package_name }}.domain.entities.base import Entity
+
+
+class Order(Entity[OrderId]):
+    """A customer order."""
+
     def __init__(self, *, id: OrderId, items: list[OrderLine], status: OrderStatus) -> None:
         self.id = id
         self._items = list(items)
@@ -48,16 +56,16 @@ class Order:
         if self._status is OrderStatus.SHIPPED:
             raise OrderCannotBeCancelledError(order_id=str(self.id))
         self._status = OrderStatus.CANCELLED
-
-    def __eq__(self, other: object) -> bool:
-        return isinstance(other, Order) and other.id == self.id
-
-    def __hash__(self) -> int:
-        return hash(self.id)
 ```
-
-Mutations through named methods (`order.cancel()`), never direct attribute assignment.
 
 ### Exceptions (`domain/exceptions/`)
 
-Subclass `DomainError`. Set `code` (SCREAMING_SNAKE) and `message` (English, end-user safe). When you add a new one you MUST add an entry in `presentation/api/error_handlers.py::ERROR_HTTP_MAPPING` — see `adding-a-domain-exception`.
+Subclass `DomainError`. Set the class-level `code` (SCREAMING_SNAKE) and `default_message` (English, end-user safe). When you add a new one you MUST add an entry in `presentation/api/error_handlers.py::ERROR_HTTP_MAPPING` — see `adding-a-domain-exception`.
+
+```python
+class InsufficientBalanceError(DomainError):
+    """Raised when an account has not enough funds for a withdrawal."""
+
+    code = "INSUFFICIENT_BALANCE"
+    default_message = "The account does not have sufficient balance."
+```

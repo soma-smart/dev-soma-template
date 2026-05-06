@@ -6,18 +6,19 @@ from {{ cookiecutter.package_name }}.application.clock import Clock
 from {{ cookiecutter.package_name }}.application.dtos.user import CreateUserInput, CreateUserOutput
 from {{ cookiecutter.package_name }}.application.id_generator import IdGenerator
 from {{ cookiecutter.package_name }}.application.repositories.user import UserRepository
+from {{ cookiecutter.package_name }}.application.use_cases.base import UseCase
 from {{ cookiecutter.package_name }}.domain.entities.user import User
 from {{ cookiecutter.package_name }}.domain.exceptions.user import UserAlreadyExistsError
 from {{ cookiecutter.package_name }}.domain.value_objects.email import Email
 from {{ cookiecutter.package_name }}.domain.value_objects.user_id import UserId
 
 
-class CreateUserUseCase:
+class CreateUserUseCase(UseCase[CreateUserInput, CreateUserOutput]):
     """Register a new user account.
 
     Raises:
-        UserAlreadyExistsError: if a user with the same email already exists.
-        InvalidEmailError: if the supplied email fails validation.
+        UserAlreadyExistsError: a user with the same email already exists.
+        InvalidEmailError: the supplied email fails validation.
     """
 
     def __init__(self, *, users: UserRepository, clock: Clock, ids: IdGenerator) -> None:

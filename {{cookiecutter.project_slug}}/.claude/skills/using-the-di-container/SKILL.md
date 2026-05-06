@@ -22,8 +22,11 @@ def build_<action>_<noun>_use_case(
     clock: Clock,
     ids: IdGenerator,
 ) -> <Action><Noun>UseCase:
-    return <Action><Noun>UseCase(<noun>s=<noun>s, clock=clock, ids=ids)
+    use_case = <Action><Noun>UseCase(<noun>s=<noun>s, clock=clock, ids=ids)
+    return _instrumented(use_case, span_name="<action>_<noun>")
 ```
+
+The `_instrumented` wrapper (defined in the same file) adds an OTel span and structured logging around `execute`: `DomainError` raises become `WARNING` events with `code` + `context`, unexpected exceptions become `ERROR` with full stack trace. The wrapped use case is returned with the same identity; only its `execute` attribute is rebound. **Application code never imports observability dependencies** — that is the whole point of doing it here.
 
 Factories must be:
 

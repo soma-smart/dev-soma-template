@@ -6,6 +6,7 @@ import re
 from dataclasses import dataclass
 
 from {{ cookiecutter.package_name }}.domain.exceptions.base import DomainError
+from {{ cookiecutter.package_name }}.domain.value_objects.base import ValueObject
 
 # Pragmatic RFC-ish regex. Strict RFC 5321 parsing is out of scope; this catches
 # the vast majority of typos at boundary entry without false-rejecting valid
@@ -17,11 +18,11 @@ class InvalidEmailError(DomainError):
     """Raised when an ``Email`` is constructed from a malformed string."""
 
     code = "INVALID_EMAIL"
-    message = "The email address is not valid."
+    default_message = "The email address is not valid."
 
 
 @dataclass(frozen=True, slots=True)
-class Email:
+class Email(ValueObject):
     """Validated email address. Stored lowercase to enforce case-insensitive equality."""
 
     value: str
