@@ -91,6 +91,13 @@ helm-render env="prod":
 # Lint the Helm chart.
 helm-lint:
     helm lint helm/{{ cookiecutter.project_slug }}
+{%- if cookiecutter.frontend_sdk != "none" %}
+
+# ─── SDK ────────────────────────────────────────────────────────────
+# Export the OpenAPI schema to openapi.json (consumed by SDK gen workflow).
+openapi:
+    uv run python scripts/export_openapi.py openapi.json
+{%- endif %}
 
 # ─── CI surface (run locally what CI runs) ──────────────────────────
 # What ci-quality.yml runs on PR.

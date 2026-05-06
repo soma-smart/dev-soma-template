@@ -23,6 +23,7 @@ PROJECT_ROOT = Path.cwd()
 INCLUDE_HELM = "{{ cookiecutter.include_helm }}" == "yes"
 INCLUDE_OTEL = "{{ cookiecutter.include_otel }}" == "yes"
 INCLUDE_CLI = "{{ cookiecutter.include_cli }}" == "yes"
+FRONTEND_SDK = "{{ cookiecutter.frontend_sdk }}"
 DATABASE = "{{ cookiecutter.database }}"
 PACKAGE_NAME = "{{ cookiecutter.package_name }}"
 
@@ -61,6 +62,9 @@ def remove_optional_components() -> None:
         remove_path(f"src/{PACKAGE_NAME}/presentation/cli")
     if not INCLUDE_OTEL:
         info("OTel disabled: kept the observability module so you can wire it later.")
+    if FRONTEND_SDK == "none":
+        remove_path("scripts/export_openapi.py")
+        remove_path(".github/workflows/sdk-typescript.yml")
     if DATABASE == "sqlite":
         info("database=sqlite: docker-compose Postgres service is still provided as opt-in.")
 

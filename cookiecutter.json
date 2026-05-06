@@ -10,6 +10,7 @@
   "include_helm": ["yes", "no"],
   "include_otel": ["yes", "no"],
   "include_cli": ["no", "yes"],
+  "frontend_sdk": ["none", "typescript"],
   "license": ["proprietary", "MIT", "Apache-2.0"],
   "__prompts__": {
     "project_name": "Human-readable project name",
@@ -23,6 +24,7 @@
     "include_helm": "Ship a Helm chart for Kubernetes deployment?",
     "include_otel": "Wire OpenTelemetry instrumentations?",
     "include_cli": "Add a presentation/cli/ layer?",
+    "frontend_sdk": "Client SDK generation: 'none' (no JS frontend), 'typescript' (ships scripts/export_openapi.py + sdk-typescript.yml workflow)",
     "license": "Project license"
   }
 }

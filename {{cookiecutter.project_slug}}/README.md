@@ -24,6 +24,12 @@ just mutate      # mutation testing on domain + application
 
 Type `just` (no args) to list every recipe. Each one is one line in `justfile`
 — inspect it instead of memorising flags.
+{%- if cookiecutter.frontend_sdk == "typescript" %}
+
+A TypeScript client SDK is generated automatically by `.github/workflows/sdk-typescript.yml`
+on every push to `main` that touches the API surface; it is uploaded as a workflow
+artefact. Run `just openapi` locally to dump the OpenAPI schema to `openapi.json`.
+{%- endif %}
 
 ## First time on this project
 

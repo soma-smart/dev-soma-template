@@ -88,6 +88,7 @@ def test_given_database_none_when_baking_then_aborts(cookies) -> None:  # type: 
         ("postgres-helm-otel", {"database": "postgres", "include_helm": "yes", "include_otel": "yes"}),
         ("sqlite-no-helm-otel", {"database": "sqlite", "include_helm": "no", "include_otel": "yes"}),
         ("sqlite-no-helm-no-otel", {"database": "sqlite", "include_helm": "no", "include_otel": "no"}),
+        ("ts-sdk", {"database": "postgres", "frontend_sdk": "typescript"}),
     ],
 )
 def test_given_combo_when_baking_then_succeeds(cookies, combo_id: str, context: dict[str, str]) -> None:  # type: ignore[no-untyped-def]
@@ -101,10 +102,16 @@ def test_given_combo_when_baking_then_succeeds(cookies, combo_id: str, context: 
     assert result.exit_code == 0, f"bake failed for {combo_id}: {result.exception}"
     project = Path(result.project_path)
     assert (project / "pyproject.toml").is_file()
-    if context["include_helm"] == "no":
+    if context.get("include_helm") == "no":
         assert not (project / "helm").exists()
-    else:
+    elif context.get("include_helm") == "yes":
         assert (project / "helm").is_dir()
+    if context.get("frontend_sdk") == "typescript":
+        assert (project / "scripts" / "export_openapi.py").is_file()
+        assert (project / ".github" / "workflows" / "sdk-typescript.yml").is_file()
+    else:
+        assert not (project / "scripts" / "export_openapi.py").exists()
+        assert not (project / ".github" / "workflows" / "sdk-typescript.yml").exists()
 
 
 @pytest.mark.integration
