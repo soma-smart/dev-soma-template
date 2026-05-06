@@ -35,8 +35,54 @@ artefact. Run `just openapi` locally to dump the OpenAPI schema to `openapi.json
 
 1. Open in VS Code and run **Reopen in Container** — Postgres + Jaeger + OTel collector start automatically.
 2. Read [`CLAUDE.md`](CLAUDE.md) (AI rules) and [`docs/architecture.md`](docs/architecture.md).
-3. Read the reference feature in [`examples/feature_user_signup/`](examples/feature_user_signup) — it threads the four layers end-to-end.
+3. Browse the **User reference feature** shipped in `src/` and `tests/` — it threads the four layers end-to-end (`POST /v1/users` → `CreateUserUseCase` → `SqlAlchemyUserRepository` → `users` table). It is real working code: keep it as a starting point if your service has the notion of a user; remove it cleanly otherwise (see below).
 4. Add your first feature using the `adding-a-use-case` Claude skill.
+
+### Removing the reference feature
+
+Run from the project root, then commit:
+
+```bash
+# Source files (12)
+git rm src/{{ cookiecutter.package_name }}/domain/entities/user.py \
+       src/{{ cookiecutter.package_name }}/domain/value_objects/email.py \
+       src/{{ cookiecutter.package_name }}/domain/value_objects/user_id.py \
+       src/{{ cookiecutter.package_name }}/domain/exceptions/user.py \
+       src/{{ cookiecutter.package_name }}/application/repositories/user.py \
+       src/{{ cookiecutter.package_name }}/application/use_cases/create_user.py \
+       src/{{ cookiecutter.package_name }}/application/dtos/user.py \
+       src/{{ cookiecutter.package_name }}/infrastructure/persistence/models/user.py \
+       src/{{ cookiecutter.package_name }}/infrastructure/persistence/user_repository.py \
+       src/{{ cookiecutter.package_name }}/presentation/api/v1/users.py \
+       src/{{ cookiecutter.package_name }}/presentation/api/schemas/user.py \
+       src/{{ cookiecutter.package_name }}/presentation/api/dependencies/users.py
+
+# Tests (5) + the migration that creates the users table (1)
+git rm tests/unit/domain/test_user.py \
+       tests/unit/domain/test_email.py \
+       tests/unit/application/test_create_user_use_case.py \
+       tests/e2e/api/test_create_user_endpoint.py \
+       tests/fakes/repositories/user.py \
+       alembic/versions/0001_init_users.py
+```
+
+Then **edit four files** to drop the dangling references:
+
+| File | Drop |
+| --- | --- |
+| `tests/conftest.py` | the `user_repository` and `create_user_use_case` fixtures, and the `app.dependency_overrides[get_create_user_use_case]` line |
+| `src/{{ cookiecutter.package_name }}/presentation/api/error_handlers.py` | the `UserAlreadyExistsError`, `UserNotFoundError`, `InvalidEmailError` imports and entries in `ERROR_HTTP_MAPPING` |
+| `src/{{ cookiecutter.package_name }}/infrastructure/container.py` | `build_user_repository`, `build_create_user_use_case`, and their imports |
+| `src/{{ cookiecutter.package_name }}/presentation/api/app.py` | the `users_v1` import and `app.include_router(users_v1.router)` line |
+
+Sanity-check your removal:
+
+```bash
+just lint        # ruff + ty + 4 architectural lints
+just test-all    # everything that remained should still pass
+```
+
+The base classes (`Entity`, `ValueObject`, `UseCase`, `Repository`), the abstractions (`Clock`, `IdGenerator`, `EventBus`, `AuditLog`, `OutboxEventModel`), the middleware stack, the health probes, the conftest primitives (`frozen_clock`, `sequential_ids`, `seeded_random`, `stub_session`) — all stay and are reusable for your real domain.
 
 ## Conventions (non-negotiable)
 
