@@ -57,11 +57,12 @@ git rm src/{{ cookiecutter.package_name }}/domain/entities/user.py \
        src/{{ cookiecutter.package_name }}/presentation/api/schemas/user.py \
        src/{{ cookiecutter.package_name }}/presentation/api/dependencies/users.py
 
-# Tests (5) + the migration that creates the users table (1)
+# Tests (6) + the migration that creates the users table (1)
 git rm tests/unit/domain/test_user.py \
        tests/unit/domain/test_email.py \
        tests/unit/application/test_create_user_use_case.py \
        tests/e2e/api/test_create_user_endpoint.py \
+       tests/integration/infrastructure/test_user_repository.py \
        tests/fakes/repositories/user.py \
        alembic/versions/0001_init_users.py
 ```

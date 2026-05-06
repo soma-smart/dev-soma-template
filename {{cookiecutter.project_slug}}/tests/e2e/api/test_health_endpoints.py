@@ -11,7 +11,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from {{ cookiecutter.package_name }}.presentation.api.dependencies.common import get_session
-from tests.conftest import StubAsyncSession
+from tests.e2e.conftest import StubAsyncSession
 
 
 @pytest.mark.e2e
