@@ -5,35 +5,61 @@
 
 ## Overview
 
-{{ cookiecutter.project_name }} is a {{ cookiecutter.project_description }} The codebase follows **Clean Architecture** (Uncle Bob, strict variant) with four concentric layers:
+{{ cookiecutter.project_name }} is a {{ cookiecutter.project_description }} The codebase follows **Clean Architecture** (Uncle Bob, strict variant) with four concentric layers. Arrows show the **direction of allowed imports** — every arrow points **inward**.
 
+```mermaid
+flowchart TB
+    subgraph Outer["Outer (delivery + I/O)"]
+        P["<b>presentation</b><br/>FastAPI routes • schemas<br/>error handlers • middleware"]
+        I["<b>infrastructure</b><br/>SQLAlchemy • structlog • OTel<br/>HTTP clients • DI container"]
+    end
+    subgraph Inner["Inner (business)"]
+        A["<b>application</b><br/>use cases • abstractions:<br/>Clock • IdGenerator<br/>Repository • EventBus • AuditLog"]
+        D["<b>domain</b><br/>entities • value objects<br/>business exceptions<br/><i>no third-party deps</i><br/><i>no non-deterministic side effects</i>"]
+    end
+
+    P -->|Depends| A
+    A --> D
+    I --> A
+    I --> D
+
+    classDef domain fill:#0e7490,stroke:#0e7490,color:#fff
+    classDef application fill:#1d4ed8,stroke:#1d4ed8,color:#fff
+    classDef infrastructure fill:#9a3412,stroke:#9a3412,color:#fff
+    classDef presentation fill:#7c3aed,stroke:#7c3aed,color:#fff
+    class D domain
+    class A application
+    class I infrastructure
+    class P presentation
 ```
-                ┌──────────────────────────────────────┐
-                │          presentation                │
-                │   (FastAPI routes, schemas,          │
-                │    error handlers, middleware)       │
-                └──────────────────────┬───────────────┘
-                                       │ Depends
-                ┌──────────────────────▼───────────────┐
-                │           application                │
-                │   (use cases + abstractions:         │
-                │    Clock, IdGenerator, Repository,   │
-                │    EventBus, AuditLog)               │
-                └──────────────────────┬───────────────┘
-                                       │
-                ┌──────────────────────▼───────────────┐
-                │              domain                  │
-                │   (entities, value objects,          │
-                │    business exceptions —             │
-                │    no third-party deps,              │
-                │    no non-deterministic side effects)│
-                └──────────────────────▲───────────────┘
-                                       │
-                ┌──────────────────────┴───────────────┐
-                │          infrastructure              │
-                │   (SQLAlchemy, structlog, OTel,      │
-                │    HTTP clients, DI container)       │
-                └──────────────────────────────────────┘
+
+Request flow for `POST /v1/users` — illustrates how a request crosses the layers:
+
+```mermaid
+sequenceDiagram
+    participant C as HTTP Client
+    participant M as Middleware<br/>(RequestId, AccessLog, ...)
+    participant R as users Router<br/>(presentation)
+    participant DI as Depends<br/>(presentation/api/dependencies)
+    participant U as CreateUserUseCase<br/>(application)
+    participant Repo as SqlAlchemyUserRepository<br/>(infrastructure)
+    participant DB as Postgres
+
+    C->>M: POST /v1/users {email,name}
+    M->>R: enriched request
+    R->>DI: get_create_user_use_case
+    DI->>Repo: build_user_repository(session)
+    DI-->>R: CreateUserUseCase wired with fakes/concretes
+    R->>U: execute(CreateUserInput)
+    U->>Repo: find_by_email(Email)
+    Repo->>DB: SELECT
+    DB-->>Repo: row | none
+    Repo-->>U: User | None
+    U->>Repo: add(User)
+    Repo->>DB: INSERT (transaction commits at request boundary)
+    U-->>R: CreateUserOutput
+    R-->>M: UserReadSchema (201)
+    M-->>C: 201 + X-Request-ID
 ```
 
 ## Dependency rule

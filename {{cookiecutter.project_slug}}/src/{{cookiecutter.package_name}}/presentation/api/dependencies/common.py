@@ -39,7 +39,13 @@ def get_random_source() -> RandomSource:
 
 
 async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
-    """Open an async session for the lifetime of the request."""
+    """Open an async session AND a transaction for the lifetime of the request.
+
+    The transaction commits when the route handler returns successfully and
+    rolls back if any exception bubbles up — including ``DomainError``,
+    which is intentional: the use case did not satisfy its post-condition,
+    so partial writes must not leak. See ADR 0004.
+    """
     factory = request.app.state.session_factory
-    async with factory() as session:
+    async with factory() as session, session.begin():
         yield session

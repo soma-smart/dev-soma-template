@@ -19,6 +19,7 @@ import structlog
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from {{ cookiecutter.package_name }}.application.clock import Clock
+from {{ cookiecutter.package_name }}.application.event_bus import EventBus
 from {{ cookiecutter.package_name }}.application.id_generator import IdGenerator
 from {{ cookiecutter.package_name }}.application.random_source import RandomSource
 from {{ cookiecutter.package_name }}.application.repositories.user import UserRepository
@@ -29,6 +30,7 @@ from {{ cookiecutter.package_name }}.infrastructure.clock import SystemClock
 from {{ cookiecutter.package_name }}.infrastructure.config.settings import Settings
 from {{ cookiecutter.package_name }}.infrastructure.id_generator import Uuid4IdGenerator
 from {{ cookiecutter.package_name }}.infrastructure.observability.tracing import traced
+from {{ cookiecutter.package_name }}.infrastructure.outbox import SqlOutboxEventBus
 from {{ cookiecutter.package_name }}.infrastructure.persistence.session import (
     build_engine,
     build_session_factory,
@@ -61,6 +63,16 @@ def build_database(settings: Settings) -> tuple[AsyncEngine, async_sessionmaker[
 def build_user_repository(session: AsyncSession) -> UserRepository:
     """Build the SQLAlchemy-backed ``UserRepository`` for a given session."""
     return SqlAlchemyUserRepository(session)
+
+
+def build_event_bus(session: AsyncSession) -> EventBus:
+    """Build the production ``EventBus`` — writes events to the SQL outbox.
+
+    Use cases that publish events receive this; the outbox row is committed
+    inside the request transaction (see ADR 0004), then forwarded to the
+    real broker by ``infrastructure/jobs/outbox_relay.py`` (see ADR 0005).
+    """
+    return SqlOutboxEventBus(session)
 
 
 def build_create_user_use_case(
