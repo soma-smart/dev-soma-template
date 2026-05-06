@@ -69,6 +69,11 @@ podDisruptionBudget:
   enabled: false
   minAvailable: 1
 
+# Must stay strictly greater than the uvicorn `--timeout-graceful-shutdown`
+# value baked into the Dockerfile (currently 30s) so K8s does not SIGKILL
+# the pod before the in-flight requests have drained.
+terminationGracePeriodSeconds: 35
+
 probes:
   liveness:
     path: /health/live           # process responsive — fail = pod restart

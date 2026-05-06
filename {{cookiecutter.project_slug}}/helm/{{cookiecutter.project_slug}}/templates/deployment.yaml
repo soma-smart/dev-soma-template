@@ -24,6 +24,7 @@ spec:
         {{- end }}
     spec:
       serviceAccountName: {{ include "app.serviceAccountName" . }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       {{- with .Values.imagePullSecrets }}

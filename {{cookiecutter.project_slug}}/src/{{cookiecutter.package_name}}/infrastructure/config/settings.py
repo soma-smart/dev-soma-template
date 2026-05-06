@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     otel_traces_sampler_arg: float = 1.0
 {%- endif %}
 
+    # ── HTTP middleware ──────────────────────────────────────────────
+    request_max_body_bytes: int = 1_048_576  # 1 MiB
+    request_timeout_seconds: float = 30.0
+
     # ── Security ─────────────────────────────────────────────────────
     # ``NoDecode`` opts out of Pydantic's default JSON decoding so we can
     # accept the much friendlier comma-separated format in .env files.

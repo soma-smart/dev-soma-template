@@ -111,3 +111,34 @@ See ADR [0002](adr/0002-tdd-and-mutation-testing.md) and [0003](adr/0003-fakes-o
 | CI | GitHub Actions | Everything: ruff, ty, pytest 3 levels, mutmut ≥90%, bandit, pip-audit, helm lint, kubeconform, polaris |
 
 A new convention is enforced at **at least two layers**, so that no single bypass can introduce drift.
+
+## Production posture
+
+### HTTP middleware stack
+
+Outermost to innermost: `RequestId` → `AccessLog` → `BodySizeLimit` → `RequestTimeout` → `CORS` → `SecurityHeaders` → handler.
+
+* `RequestId` accepts an upstream `X-Request-ID` or generates a UUID4 hex; binds it to the structlog context so every log line in the request scope carries it; echoes it back on the response.
+* `AccessLog` emits one structured `http.request` event per request with method, path, status, duration_ms, client. `/health/*` paths are silenced.
+* `BodySizeLimit` rejects requests whose `Content-Length` exceeds `request_max_body_bytes` (default 1 MiB) with a 413.
+* `RequestTimeout` caps each request at `request_timeout_seconds` (default 30s) via `asyncio.wait_for`; on overrun it returns 504 and the handler coroutine is cancelled.
+
+### Graceful shutdown
+
+Aligned across two layers:
+
+* uvicorn ships with `--timeout-graceful-shutdown 30` (Dockerfile `CMD`) — drains in-flight requests for up to 30s after SIGTERM.
+* Helm `terminationGracePeriodSeconds: 35` is strictly greater than 30 so K8s never SIGKILLs before the drain completes.
+
+### Image supply chain (CI)
+
+* `ci-image-scan.yml` (PR): builds the image, runs Trivy (fails on HIGH/CRITICAL with a known fix), produces a CycloneDX SBOM artefact.
+* `release.yml` (tag): rebuilds, scans, pushes, signs with `cosign` (keyless via Sigstore + GitHub OIDC), attaches the SBOM as a Sigstore attestation, attaches the SBOM JSON to the GitHub Release.
+
+Verify a release locally:
+
+```bash
+cosign verify ghcr.io/<org>/<repo>:vX.Y.Z \
+  --certificate-identity-regexp '^https://github.com/<org>/<repo>/.github/workflows/release\.yml@.*' \
+  --certificate-oidc-issuer 'https://token.actions.githubusercontent.com'
+```

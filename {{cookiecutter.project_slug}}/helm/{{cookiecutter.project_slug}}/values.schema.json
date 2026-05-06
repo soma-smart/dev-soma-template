@@ -5,6 +5,7 @@
   "required": ["image", "config"],
   "properties": {
     "replicaCount": { "type": "integer", "minimum": 1 },
+    "terminationGracePeriodSeconds": { "type": "integer", "minimum": 1 },
     "image": {
       "type": "object",
       "required": ["repository"],

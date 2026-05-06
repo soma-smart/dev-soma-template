@@ -29,7 +29,13 @@ from {{ cookiecutter.package_name }}.infrastructure.observability import (
 )
 from {{ cookiecutter.package_name }}.presentation.api.error_handlers import register_error_handlers
 from {{ cookiecutter.package_name }}.presentation.api.health import router as health_router
-from {{ cookiecutter.package_name }}.presentation.api.middleware import SecurityHeadersMiddleware
+from {{ cookiecutter.package_name }}.presentation.api.middleware import (
+    AccessLogMiddleware,
+    BodySizeLimitMiddleware,
+    RequestIdMiddleware,
+    RequestTimeoutMiddleware,
+    SecurityHeadersMiddleware,
+)
 from {{ cookiecutter.package_name }}.presentation.api.v1 import users as users_v1
 
 logger = structlog.get_logger(__name__)
@@ -69,6 +75,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=lifespan,
     )
 
+    # Middleware order: the LAST ``add_middleware`` becomes the OUTERMOST
+    # wrapper. We want, from outermost to innermost:
+    #   RequestId -> AccessLog -> BodySizeLimit -> RequestTimeout -> CORS ->
+    #   SecurityHeaders -> handler
+    app.add_middleware(SecurityHeadersMiddleware)
     if settings.cors_allowed_origins:
         app.add_middleware(
             CORSMiddleware,
@@ -77,7 +88,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             allow_headers=["*"],
             allow_credentials=True,
         )
-    app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(RequestTimeoutMiddleware, timeout_seconds=settings.request_timeout_seconds)
+    app.add_middleware(BodySizeLimitMiddleware, max_bytes=settings.request_max_body_bytes)
+    app.add_middleware(AccessLogMiddleware)
+    app.add_middleware(RequestIdMiddleware)
 
     register_error_handlers(app)
 

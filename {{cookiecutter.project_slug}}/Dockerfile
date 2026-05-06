@@ -46,4 +46,9 @@ USER app
 EXPOSE 8000
 
 ENTRYPOINT ["tini", "--"]
-CMD ["uvicorn", "{{ cookiecutter.package_name }}.presentation.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
+# --timeout-graceful-shutdown 30 lets uvicorn drain in-flight requests for up
+# to 30s after SIGTERM. The Helm chart's terminationGracePeriodSeconds MUST
+# stay strictly greater than 30 for the drain to complete before SIGKILL.
+CMD ["uvicorn", "{{ cookiecutter.package_name }}.presentation.api.app:app", \
+     "--host", "0.0.0.0", "--port", "8000", \
+     "--timeout-graceful-shutdown", "30"]

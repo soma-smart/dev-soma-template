@@ -1,0 +1,59 @@
+name: CI Image Scan
+
+# Builds the production image (no push) and runs supply-chain checks:
+#   - Trivy: vulnerability scan, fail on HIGH/CRITICAL CVEs that have a fix
+#   - Syft:  CycloneDX SBOM produced as a PR artefact
+# Production-grade hygiene baseline; the release.yml workflow signs and
+# pushes once a tag is cut.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "Dockerfile"
+      - "src/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/ci-image-scan.yml"
+
+jobs:
+  scan:
+    name: Trivy + Syft on a freshly built image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build (no push, load locally)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: runtime
+          load: true
+          tags: app:pr
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Trivy image scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: app:pr
+          format: table
+          exit-code: "1"
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          vuln-type: os,library
+
+      - name: Generate CycloneDX SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: app:pr
+          format: cyclonedx-json
+          output-file: sbom.cdx.json
+
+      - name: Upload SBOM artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-cdx-json
+          path: sbom.cdx.json
+          retention-days: 30
