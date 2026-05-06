@@ -11,7 +11,7 @@ from {{ cookiecutter.package_name }}.domain.value_objects.user_id import UserId
 
 
 class UserRepository(Repository[User, UserId]):
-    """Persistence contract for the ``User`` aggregate.
+    """Persistence contract for the ``User`` entity.
 
     ``add`` and ``find_by_id`` are inherited from ``Repository``. Subclasses
     need only implement them plus the user-specific ``find_by_email``.

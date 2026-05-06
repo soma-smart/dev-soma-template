@@ -3,7 +3,7 @@
 Persists events to the ``outbox_events`` table inside the request
 transaction. A relay worker (see ``infrastructure/jobs/outbox_relay.py``)
 forwards rows to the configured broker out-of-band, providing at-least-once
-delivery semantics aligned with the aggregate write.
+delivery semantics aligned with the entity write.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ class SqlOutboxEventBus(EventBus):
     """``EventBus`` that enqueues events into the SQL outbox.
 
     The bus shares the request session, so the row hits the DB inside the
-    same transaction as the aggregate write — no orphan events, no events
+    same transaction as the entity write — no orphan events, no events
     lost when the write fails.
     """
 

@@ -25,7 +25,7 @@ When naming an abstract class, prefer one of these stereotype suffixes — they 
 
 | Stereotype | Use |
 |---|---|
-| `…Repository` | Persistence of an aggregate (CRUD + queries) |
+| `…Repository` | Persistence of an entity (CRUD + queries) |
 | `…Gateway` | Façade over an external SaaS (Stripe, SendGrid, …) |
 | `…Bus` | Pub/sub or message routing |
 | `…Sender` / `…Publisher` / `…Subscriber` | Outbound / inbound message roles |

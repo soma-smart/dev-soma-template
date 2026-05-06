@@ -16,7 +16,7 @@ class OutboxEventModel(Base):
     """``outbox_events`` — domain events queued for asynchronous publication.
 
     Rows are inserted by the use case in the same transaction as the
-    aggregate write (see ADR 0005). A separate relay process polls
+    entity write (see ADR 0005). A separate relay process polls
     ``published_at IS NULL`` and forwards rows to the configured broker.
     """
 

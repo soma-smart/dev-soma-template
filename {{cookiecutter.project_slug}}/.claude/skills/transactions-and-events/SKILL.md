@@ -1,7 +1,7 @@
 ---
 name: transactions-and-events
 description: How to commit/rollback at the request boundary and how to publish domain events via the outbox.
-when_to_use: A use case mutates more than one aggregate, raises errors after partial writes, or needs to publish an event. Editing infrastructure/outbox.py or infrastructure/jobs/outbox_relay.py.
+when_to_use: A use case mutates more than one entity, raises errors after partial writes, or needs to publish an event. Editing infrastructure/outbox.py or infrastructure/jobs/outbox_relay.py.
 ---
 
 # Transactions and events

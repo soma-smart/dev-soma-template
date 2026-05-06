@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 
 
 class Repository[TEntity, TId](ABC):
-    """Generic persistence contract for an aggregate.
+    """Generic persistence contract for an entity.
 
     Concrete subclasses implement ``add`` and ``find_by_id`` and add
     domain-specific finders (``find_by_email``, ``search_active``, ...).

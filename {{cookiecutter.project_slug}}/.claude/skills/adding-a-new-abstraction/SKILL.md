@@ -19,7 +19,7 @@ Walk the list before adding anything new:
 | `RandomSource` (`application/random_source.py`) | Any random draw (uniform float, integer in range). Crypto-strength in prod, seeded in tests. Don't write a separate `JitterSource`. |
 | `EventBus` (`application/event_bus.py`) | **Any** domain event leaving the use case asynchronously. The default binding (`SqlOutboxEventBus`) writes to the outbox table; a worker forwards. Don't write a `MessagePublisher` next to it. |
 | `AuditLog` (`application/audit_log.py`) | User-meaningful events that ops or end users will read (not just techlogs). Tied to a `actor_id`. Don't write a `UserActivityRecorder`. |
-| `<Entity>Repository` (`application/repositories/`) | All persistence for an aggregate. Add a method on the existing repo (`find_by_status`, `archive`) before writing a new abstraction. |
+| `<Entity>Repository` (`application/repositories/`) | All persistence for an entity. Add a method on the existing repo (`find_by_status`, `archive`) before writing a new abstraction. |
 
 If the new collaborator fits one of those, the answer is: **add a method to the existing abstraction**, do not create a new one.
 

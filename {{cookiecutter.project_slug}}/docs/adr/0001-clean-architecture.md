@@ -37,5 +37,5 @@ Naming follows Uncle Bob *Clean Code*: no `Manager`/`Helper`/`Service`/`Util`, r
 - Cross-layer leaks are detectable mechanically (`scripts/checks/no_third_party_in_domain.py`).
 
 **Negative**:
-- More files than a flat layout. The `User` aggregate spans ~10 files (entity, value object, exception, repo abstract, repo impl, use case, DTOs, schema, route, mapping). The team has decided this is a worthwhile tax.
+- More files than a flat layout. The `User` feature spans ~10 files (entity, value object, exception, repo abstract, repo impl, use case, DTOs, schema, route, mapping). The team has decided this is a worthwhile tax.
 - Mapping between domain entities and ORM models adds boilerplate. Mitigated by living strictly inside `infrastructure/persistence/` repositories, with private `_to_entity` / `_to_model` helpers.
