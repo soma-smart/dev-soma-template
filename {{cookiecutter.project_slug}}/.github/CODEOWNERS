@@ -1,0 +1,30 @@
+# GitHub auto-routes review requests to the matching owners on every PR.
+# Patterns are processed top-to-bottom; the LAST matching pattern wins.
+# Replace @your-team with the actual GitHub team or username before merging
+# the first PR — until you do, the default rule below makes every PR depend
+# on a non-existent reviewer and CodeOwners will warn.
+#
+# Reference: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-security/customizing-your-repository/about-code-owners
+
+# Default owner for any path not matched below.
+*                                          @your-team
+
+# Architecture-critical paths get the architecture group.
+/src/*/domain/                             @your-team @your-architects
+/src/*/application/                        @your-team @your-architects
+/docs/adr/                                 @your-team @your-architects
+
+# Schema and migrations require a DB-savvy reviewer.
+/alembic/                                  @your-team @your-dba
+/src/*/infrastructure/persistence/         @your-team @your-dba
+
+# Deployment surface requires the platform team.
+/helm/                                     @your-team @your-platform
+/Dockerfile                                @your-team @your-platform
+/.devcontainer/                            @your-team @your-platform
+
+# CI changes require the platform team to avoid pipeline drift.
+/.github/workflows/                        @your-team @your-platform
+
+# Security-sensitive paths require security review.
+/SECURITY.md                               @your-team @your-security

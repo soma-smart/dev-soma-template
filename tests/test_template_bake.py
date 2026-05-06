@@ -30,10 +30,13 @@ EXPECTED_TOP_FILES = (
     "pyproject.toml",
     "README.md",
     "CLAUDE.md",
+    "LICENSE",
+    "SECURITY.md",
     ".env.example",
     "Dockerfile",
     ".pre-commit-config.yaml",
     "alembic.ini",
+    ".github/CODEOWNERS",
 )
 
 
@@ -79,6 +82,28 @@ def test_given_database_none_when_baking_then_aborts(cookies) -> None:  # type: 
 
     # THEN
     assert result.exit_code != 0
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("license_value", "marker"),
+    [
+        ("proprietary", "All rights reserved"),
+        ("MIT", "MIT License"),
+        ("Apache-2.0", "Apache License"),
+    ],
+)
+def test_given_license_choice_when_baking_then_license_file_matches(  # type: ignore[no-untyped-def]
+    cookies, license_value: str, marker: str
+) -> None:
+    # GIVEN / WHEN
+    safe_name = license_value.replace(".", "").replace("-", "")
+    result = cookies.bake(extra_context={"project_name": f"Lic {safe_name}", "license": license_value})
+
+    # THEN
+    assert result.exit_code == 0, result.exception
+    license_text = (Path(result.project_path) / "LICENSE").read_text(encoding="utf-8")
+    assert marker in license_text
 
 
 @pytest.mark.unit
