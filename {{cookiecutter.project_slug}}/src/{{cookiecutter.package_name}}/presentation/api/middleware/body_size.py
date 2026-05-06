@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
+from starlette.types import ASGIApp
 
 
 class BodySizeLimitMiddleware(BaseHTTPMiddleware):
@@ -19,7 +20,7 @@ class BodySizeLimitMiddleware(BaseHTTPMiddleware):
     defence in depth.
     """
 
-    def __init__(self, app: Callable[..., Awaitable[Response]], *, max_bytes: int) -> None:
+    def __init__(self, app: ASGIApp, *, max_bytes: int) -> None:
         super().__init__(app)
         self.max_bytes = max_bytes
 

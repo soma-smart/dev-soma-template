@@ -13,9 +13,9 @@ class Repository[TEntity, TId](ABC):
     """
 
     @abstractmethod
-    async def add(self, entity: TEntity) -> None:
+    async def add(self, entity: TEntity, /) -> None:
         """Persist ``entity``, raising a ``DomainError`` on uniqueness violation."""
 
     @abstractmethod
-    async def find_by_id(self, id: TId) -> TEntity | None:
+    async def find_by_id(self, id: TId, /) -> TEntity | None:
         """Return the entity with the given identifier or ``None`` when absent."""

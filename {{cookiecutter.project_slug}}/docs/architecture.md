@@ -149,6 +149,12 @@ Outermost to innermost: `RequestId` → `AccessLog` → `BodySizeLimit` → `Req
 * `BodySizeLimit` rejects requests whose `Content-Length` exceeds `request_max_body_bytes` (default 1 MiB) with a 413.
 * `RequestTimeout` caps each request at `request_timeout_seconds` (default 30s) via `asyncio.wait_for`; on overrun it returns 504 and the handler coroutine is cancelled.
 
+### Prometheus metrics
+
+`prometheus-fastapi-instrumentator` exposes `/metrics` (always on, excluded from the OpenAPI schema). Out of the box: HTTP request count + duration histogram + in-progress gauge per `(method, handler, status)`, plus `prometheus_client` process metrics (CPU, memory, fds, uptime). `/metrics` itself and `/health/*` are excluded from the instrumentation to avoid feedback noise.
+
+The Helm chart ships a `ServiceMonitor` (gated by `metrics.enabled`) pointing at `/metrics` so a Prometheus operator picks it up automatically.
+
 ### Graceful shutdown
 
 Aligned across two layers:

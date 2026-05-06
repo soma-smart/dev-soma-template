@@ -29,5 +29,5 @@ class InMemoryUserRepository(UserRepository):
     async def find_by_email(self, email: Email) -> User | None:
         return next((u for u in self.users.values() if u.email == email), None)
 
-    async def find_by_id(self, user_id: UserId) -> User | None:
-        return self.users.get(user_id)
+    async def find_by_id(self, id: UserId) -> User | None:
+        return self.users.get(id)

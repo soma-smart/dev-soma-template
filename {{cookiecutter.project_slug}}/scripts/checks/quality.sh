@@ -19,7 +19,7 @@ step "ruff format --check"
 uv run ruff format --check src/ tests/ scripts/
 
 step "ty check"
-uv run ty check src/ || true   # tightened in phase D2
+uv run ty check src/
 
 step "no_third_party_in_domain"
 uv run python scripts/checks/no_third_party_in_domain.py src/

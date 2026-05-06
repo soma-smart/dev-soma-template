@@ -14,7 +14,7 @@ logger = structlog.get_logger("http.access")
 
 # Endpoints whose volume would drown the log stream and that bring no value
 # to ingest. Kept short on purpose: anything user-meaningful is logged.
-SILENT_PATHS = ("/health/live", "/health/ready", "/health/startup")
+SILENT_PATHS = ("/health/live", "/health/ready", "/health/startup", "/metrics")
 
 
 class AccessLogMiddleware(BaseHTTPMiddleware):

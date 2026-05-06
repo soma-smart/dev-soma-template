@@ -7,6 +7,7 @@ from collections.abc import Awaitable, Callable
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
+from starlette.types import ASGIApp
 
 DEFAULT_HEADERS: dict[str, str] = {
     "X-Content-Type-Options": "nosniff",
@@ -20,7 +21,7 @@ DEFAULT_HEADERS: dict[str, str] = {
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Sets a baseline of security headers on every HTTP response."""
 
-    def __init__(self, app: Callable[..., Awaitable[Response]], headers: dict[str, str] | None = None) -> None:
+    def __init__(self, app: ASGIApp, headers: dict[str, str] | None = None) -> None:
         super().__init__(app)
         self.headers = {**DEFAULT_HEADERS, **(headers or {})}
 

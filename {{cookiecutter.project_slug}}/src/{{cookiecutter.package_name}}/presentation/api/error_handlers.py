@@ -79,5 +79,8 @@ async def handle_unexpected_error(request: Request, exc: Exception) -> JSONRespo
 
 def register_error_handlers(app: FastAPI) -> None:
     """Register the domain and fallback handlers on the FastAPI app."""
-    app.add_exception_handler(DomainError, handle_domain_error)
+    # Starlette's overload set does not include the (Request, Exception) -> JSONResponse
+    # signature returned by our async handlers; FastAPI accepts it at runtime via
+    # adapter logic, so we intentionally bypass the static check here.
+    app.add_exception_handler(DomainError, handle_domain_error)  # ty: ignore[invalid-argument-type]
     app.add_exception_handler(Exception, handle_unexpected_error)

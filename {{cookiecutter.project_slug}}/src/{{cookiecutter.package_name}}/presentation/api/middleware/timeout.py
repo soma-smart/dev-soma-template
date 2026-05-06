@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
+from starlette.types import ASGIApp
 
 logger = structlog.get_logger(__name__)
 
@@ -22,7 +23,7 @@ class RequestTimeoutMiddleware(BaseHTTPMiddleware):
     are released through their normal context-manager teardown.
     """
 
-    def __init__(self, app: Callable[..., Awaitable[Response]], *, timeout_seconds: float) -> None:
+    def __init__(self, app: ASGIApp, *, timeout_seconds: float) -> None:
         super().__init__(app)
         self.timeout_seconds = timeout_seconds
 

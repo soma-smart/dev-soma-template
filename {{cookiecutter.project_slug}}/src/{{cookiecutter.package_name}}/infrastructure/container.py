@@ -118,5 +118,8 @@ def _instrumented[U: UseCase[Any, Any]](use_case: U, *, span_name: str) -> U:
             logger.exception(f"{span_name}.unexpected_error")
             raise
 
-    use_case.execute = execute  # type: ignore[method-assign]
+    # method-assign: rebinding the bound method on the instance is the whole
+    # point of the wrapper — both type checkers (mypy, ty) flag it because
+    # the closure signature is not the unbound class method shape.
+    use_case.execute = execute  # type: ignore[method-assign] # ty: ignore[invalid-assignment]
     return use_case

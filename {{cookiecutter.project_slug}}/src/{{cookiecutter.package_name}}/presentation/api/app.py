@@ -18,6 +18,7 @@ from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.logging import LoggingInstrumentor
 from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
 {%- endif %}
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from {{ cookiecutter.package_name }}.infrastructure.config.settings import Settings, get_settings
 from {{ cookiecutter.package_name }}.infrastructure.container import build_database
@@ -98,6 +99,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 {%- if cookiecutter.include_otel == "yes" %}
     FastAPIInstrumentor().instrument_app(app)
 {%- endif %}
+
+    # Prometheus metrics endpoint. Always-on by design: the Helm chart's
+    # ServiceMonitor (gated by metrics.enabled) decides whether the cluster
+    # actually scrapes this endpoint. Excluded paths avoid /metrics scraping
+    # itself (recursive noise) and the high-volume health probes.
+    Instrumentator(
+        excluded_handlers=["/metrics", "/health/.*"],
+        should_group_status_codes=False,
+    ).instrument(app).expose(app, include_in_schema=False, endpoint="/metrics")
 
     app.include_router(health_router)
     app.include_router(users_v1.router)

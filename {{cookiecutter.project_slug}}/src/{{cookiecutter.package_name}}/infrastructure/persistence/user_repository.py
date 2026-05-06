@@ -34,9 +34,9 @@ class SqlAlchemyUserRepository(UserRepository):
         model = (await self._session.execute(stmt)).scalar_one_or_none()
         return self._to_entity(model) if model is not None else None
 
-    async def find_by_id(self, user_id: UserId) -> User | None:
+    async def find_by_id(self, id: UserId) -> User | None:
         """Return the user with the given identifier or ``None``."""
-        model = await self._session.get(UserModel, user_id.value)
+        model = await self._session.get(UserModel, id.value)
         return self._to_entity(model) if model is not None else None
 
     @staticmethod

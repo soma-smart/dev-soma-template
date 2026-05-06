@@ -19,6 +19,7 @@ The reference feature is `examples/feature_user_signup/` — read it before addi
 | "Where does this code go?", import questions     | `clean-architecture-layers`    |
 | Editing `src/<pkg>/domain/`                      | `writing-domain-code`          |
 | "Add a feature", "new use case", "new endpoint"  | `adding-a-use-case`            |
+| "Need a new EmailSender / Gateway / Hasher / ..." | `adding-a-new-abstraction` (BEFORE you write the abstract class) |
 | "New error", "domain exception"                  | `adding-a-domain-exception`    |
 | "Fix a bug", "write a test"                      | `tdd-workflow` then `writing-tests` |
 | Editing `tests/fakes/`                           | `writing-a-fake`               |
