@@ -32,7 +32,14 @@ def _is_e2e(file: Path) -> bool:
 
 
 def _has_marker(text: str, marker: str) -> bool:
-    return any(line.strip() == marker for line in text.splitlines())
+    """Match a stripped line equal to ``marker`` or starting with ``marker:``.
+
+    The colon-suffix form lets fixture-driven tests annotate the bare GIVEN
+    block without a body — ``# GIVEN: wired by fixture`` is a single-line
+    sentence that satisfies the marker requirement.
+    """
+    target = marker.strip()
+    return any(line.strip() == target or line.strip().startswith(f"{target}:") for line in text.splitlines())
 
 
 def _check_function(file: Path, fn: ast.FunctionDef | ast.AsyncFunctionDef, source: str) -> list[str]:

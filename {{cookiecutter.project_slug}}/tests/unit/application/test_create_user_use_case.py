@@ -19,42 +19,38 @@ from tests.fakes.repositories.user import InMemoryUserRepository
 
 
 @pytest.mark.unit
-async def test_given_empty_repository_when_creating_user_then_persists_and_returns_output() -> None:
+async def test_given_empty_repository_when_creating_user_then_persists_and_returns_output(
+    create_user_use_case: CreateUserUseCase,
+    user_repository: InMemoryUserRepository,
+) -> None:
     # GIVEN
-    repo = InMemoryUserRepository()
-    clock = FrozenClock(at=datetime(2026, 5, 5, 12, 0, tzinfo=UTC))
-    ids = SequentialIdGenerator(start=1)
-    use_case = CreateUserUseCase(users=repo, clock=clock, ids=ids)
+    payload = CreateUserInput(email="Alice@Example.com", name="Alice")
 
     # WHEN
-    output = await use_case.execute(CreateUserInput(email="Alice@Example.com", name="Alice"))
+    output = await create_user_use_case.execute(payload)
 
     # THEN
     assert output.id == UUID(int=1)
     assert output.email == "alice@example.com"
     assert output.name == "Alice"
     assert output.created_at == datetime(2026, 5, 5, 12, 0, tzinfo=UTC)
-    assert len(repo.users) == 1
+    assert len(user_repository.users) == 1
 
 
 @pytest.mark.unit
-async def test_given_existing_email_when_creating_user_then_raises_user_already_exists() -> None:
+async def test_given_existing_email_when_creating_user_then_raises_user_already_exists(
+    user_repository: InMemoryUserRepository,
+    frozen_clock: FrozenClock,
+    sequential_ids: SequentialIdGenerator,
+) -> None:
     # GIVEN
-    repo = InMemoryUserRepository(
-        seed=[
-            User(
-                id=UserId(UUID(int=1)),
-                email=Email("alice@example.com"),
-                name="Alice",
-                created_at=datetime(2026, 5, 5, tzinfo=UTC),
-            )
-        ]
+    user_repository.users[UserId(UUID(int=1))] = User(
+        id=UserId(UUID(int=1)),
+        email=Email("alice@example.com"),
+        name="Alice",
+        created_at=datetime(2026, 5, 5, tzinfo=UTC),
     )
-    use_case = CreateUserUseCase(
-        users=repo,
-        clock=FrozenClock(at=datetime(2026, 5, 5, tzinfo=UTC)),
-        ids=SequentialIdGenerator(start=2),
-    )
+    use_case = CreateUserUseCase(users=user_repository, clock=frozen_clock, ids=sequential_ids)
 
     # WHEN / THEN
     with pytest.raises(UserAlreadyExistsError):
@@ -62,28 +58,27 @@ async def test_given_existing_email_when_creating_user_then_raises_user_already_
 
 
 @pytest.mark.unit
-async def test_given_invalid_email_when_creating_user_then_raises_invalid_email() -> None:
-    # GIVEN
-    use_case = CreateUserUseCase(
-        users=InMemoryUserRepository(),
-        clock=FrozenClock(at=datetime(2026, 5, 5, tzinfo=UTC)),
-        ids=SequentialIdGenerator(),
-    )
+async def test_given_invalid_email_when_creating_user_then_raises_invalid_email(
+    create_user_use_case: CreateUserUseCase,
+) -> None:
+    # GIVEN: use case wired by fixture
 
     # WHEN / THEN
     with pytest.raises(InvalidEmailError):
-        await use_case.execute(CreateUserInput(email="not-an-email", name="Bob"))
+        await create_user_use_case.execute(CreateUserInput(email="not-an-email", name="Bob"))
 
 
 @pytest.mark.unit
-async def test_given_clock_at_specific_instant_when_creating_user_then_created_at_matches_clock() -> None:
+async def test_given_clock_at_specific_instant_when_creating_user_then_created_at_matches_clock(
+    user_repository: InMemoryUserRepository,
+    sequential_ids: SequentialIdGenerator,
+) -> None:
     # GIVEN
     instant = datetime(2030, 1, 1, 9, 30, tzinfo=UTC)
-    repo = InMemoryUserRepository()
     use_case = CreateUserUseCase(
-        users=repo,
+        users=user_repository,
         clock=FrozenClock(at=instant),
-        ids=SequentialIdGenerator(),
+        ids=sequential_ids,
     )
 
     # WHEN

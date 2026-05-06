@@ -13,5 +13,5 @@ spec:
     - name: curl
       image: curlimages/curl:latest
       command: ["curl"]
-      args: ["-fsSL", "http://{{ include "app.fullname" . }}:{{ .Values.service.port }}/health"]
+      args: ["-fsSL", "http://{{ include "app.fullname" . }}:{{ .Values.service.port }}/health/live"]
 {% endraw %}

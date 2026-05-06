@@ -1,0 +1,86 @@
+name: CI Migration Drift
+
+# Detects when an ORM model has been changed without a matching Alembic
+# revision committed. Runs `alembic revision --autogenerate` against a
+# disposable Postgres service and fails the PR if the produced file would
+# contain non-trivial upgrade/downgrade ops.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/**/persistence/**"
+      - "src/**/infrastructure/persistence/**"
+      - "alembic/**"
+      - "pyproject.toml"
+      - ".github/workflows/ci-migration-drift.yml"
+
+jobs:
+  check-drift:
+    name: alembic autogenerate diff
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+          POSTGRES_DB: drift_check
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U app -d drift_check"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    env:
+      DB_URL: postgresql+asyncpg://app:app@localhost:5432/drift_check
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v7
+        with: { enable-caching: true }
+
+      - run: uv sync --frozen --group dev
+
+      - name: Apply existing migrations to baseline
+        run: uv run alembic upgrade head
+
+      - name: Generate a revision against the current models
+        run: |
+          uv run alembic revision --autogenerate -m "drift_check" > /tmp/alembic.log 2>&1 || {
+            cat /tmp/alembic.log
+            exit 1
+          }
+
+      - name: Inspect the generated revision
+        id: inspect
+        shell: bash
+        run: |
+          set -euo pipefail
+          GENERATED=$(ls -t alembic/versions/*drift_check*.py 2>/dev/null | head -n1 || true)
+          if [ -z "$GENERATED" ]; then
+            echo "no_drift=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Inspecting $GENERATED"
+          # A drift-free autogenerate produces upgrade()/downgrade() bodies that
+          # are just 'pass' (or end with 'pass') and contain no op.* calls.
+          if grep -E '^[[:space:]]*op\.' "$GENERATED" >/dev/null; then
+            echo ""
+            echo "Migration drift detected. Models changed but no Alembic revision was committed."
+            echo "Generated revision excerpt:"
+            echo "----------------------------------------"
+            sed -n '/^def upgrade/,/^def downgrade/p' "$GENERATED" | head -n 60
+            echo "----------------------------------------"
+            echo ""
+            echo "Run locally:"
+            echo "  uv run alembic revision --autogenerate -m \"<short_description>\""
+            echo "Read the produced file, refine, and commit."
+            exit 1
+          fi
+          echo "no_drift=true" >> "$GITHUB_OUTPUT"
+          rm -f "$GENERATED"
+          echo "No drift — generated revision is empty."

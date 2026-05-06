@@ -71,15 +71,15 @@ podDisruptionBudget:
 
 probes:
   liveness:
-    path: /health
+    path: /health/live           # process responsive — fail = pod restart
     initialDelaySeconds: 10
     periodSeconds: 10
   readiness:
-    path: /health
+    path: /health/ready          # DB reachable — fail = removed from LB
     initialDelaySeconds: 5
     periodSeconds: 5
   startup:
-    path: /health
+    path: /health/startup        # boot finished — guards live/ready timeouts
     failureThreshold: 30
     periodSeconds: 5
 

@@ -28,6 +28,7 @@ from {{ cookiecutter.package_name }}.infrastructure.observability import (
 {%- endif %}
 )
 from {{ cookiecutter.package_name }}.presentation.api.error_handlers import register_error_handlers
+from {{ cookiecutter.package_name }}.presentation.api.health import router as health_router
 from {{ cookiecutter.package_name }}.presentation.api.middleware import SecurityHeadersMiddleware
 from {{ cookiecutter.package_name }}.presentation.api.v1 import users as users_v1
 
@@ -40,7 +41,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     configure_logging(log_format=settings.log_format, log_level=settings.log_level)
 {%- if cookiecutter.include_otel == "yes" %}
     configure_tracing(settings)
-    LoggingInstrumentor().instrument(set_logging_format=False)
+    # Idempotent guard: ``create_app`` may run multiple times in the same
+    # process (e.g. test fixtures); instrumenting twice raises warnings.
+    _logging_instrumentor = LoggingInstrumentor()
+    if not getattr(_logging_instrumentor, "_is_instrumented_by_opentelemetry", False):
+        _logging_instrumentor.instrument(set_logging_format=False)
 {%- endif %}
 
     @asynccontextmanager
@@ -80,10 +85,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     FastAPIInstrumentor().instrument_app(app)
 {%- endif %}
 
-    @app.get("/health", tags=["health"])
-    async def health() -> dict[str, str]:
-        return {"status": "ok"}
-
+    app.include_router(health_router)
     app.include_router(users_v1.router)
     return app
 

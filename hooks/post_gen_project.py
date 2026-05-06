@@ -13,6 +13,7 @@ already on disk and the user can fix tooling issues afterwards.
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
@@ -102,6 +103,40 @@ def install_pre_commit() -> None:
     )
 
 
+def apply_initial_migration() -> None:
+    """Best-effort ``alembic upgrade head`` against the configured DB.
+
+    Loads ``.env`` so ``DB_URL`` is available to alembic, then attempts the
+    upgrade. Succeeds for the SQLite default (creates ``local.db`` in the
+    project root). For Postgres, succeeds only when the DB is already up
+    (e.g. inside the devcontainer); otherwise the failure is logged and
+    silenced — the devcontainer ``postStartCommand`` reapplies it once the
+    Postgres service is healthy.
+    """
+    env = os.environ.copy()
+    env_file = PROJECT_ROOT / ".env"
+    if env_file.exists():
+        for raw_line in env_file.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            env[key.strip()] = value.strip()
+
+    try:
+        subprocess.run(
+            ["uv", "run", "alembic", "upgrade", "head"],
+            cwd=PROJECT_ROOT,
+            env=env,
+            check=True,
+            capture_output=True,
+            timeout=30,
+        )
+        info("applied initial migration")
+    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired) as exc:
+        warn(f"alembic upgrade head skipped (DB not reachable yet?): {exc}")
+
+
 def print_next_steps() -> None:
     sys.stdout.write(
         "\n"
@@ -124,6 +159,7 @@ def main() -> None:
     git_init()
     uv_sync()
     install_pre_commit()
+    apply_initial_migration()
     print_next_steps()
 
 
