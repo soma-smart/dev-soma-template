@@ -49,4 +49,6 @@ The full ruleset lives in `.claude/skills/` and is enforced by pre-commit, git h
 
 ## CI/CD
 
-GitHub Actions: quality (ruff + ty + pytest), security (bandit + pip-audit + gitleaks), mutation (mutmut), helm (lint + kubeconform), conventional commits, release (semver + image push).
+GitHub Actions: quality (ruff + ty + pytest), security (bandit + pip-audit + gitleaks), mutation (mutmut), helm (lint + kubeconform + polaris), migration-drift (autogenerate diff), image-scan (Trivy + SBOM), release (build + scan + cosign sign + SBOM attestation).
+
+Conventional Commits are enforced **locally** by the `commitizen` `commit-msg` pre-commit hook (and Claude Code permissions block `--no-verify`), so a dedicated CI gate is intentionally absent.

@@ -41,7 +41,7 @@ when_to_use: User asks for a review; before requesting code review; checking a d
 - [ ] No secret in code, no `.env` committed.
 - [ ] Conventional Commits messages.
 - [ ] PR size manageable (<500 LOC). If larger, justify or split.
-- [ ] CI is green: ci-quality, ci-security, ci-mutation, ci-helm (when applicable), ci-conventional-commits.
+- [ ] CI is green: ci-quality, ci-security, ci-mutation, ci-helm (when applicable), ci-migration-drift (when applicable), ci-image-scan.
 
 ## Useful one-liners
 
