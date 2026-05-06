@@ -32,8 +32,8 @@ Clean up while the bar is green. Names, dead code, duplication. Run the tests af
 This is the step everyone forgets. Run mutation testing on the surface you just touched:
 
 ```bash
-uv run mutmut run --paths-to-mutate src/{{ cookiecutter.package_name }}/<modified_paths>
-uv run mutmut results
+just mutate           # mutmut on domain + application (paths set in pyproject)
+just mutate-results   # show the latest report
 ```
 
 If mutants survive → your tests are too lax → write another failing test that catches the missing behaviour → back to step 1.

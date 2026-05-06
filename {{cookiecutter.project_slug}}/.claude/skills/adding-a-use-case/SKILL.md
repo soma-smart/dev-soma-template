@@ -85,7 +85,7 @@ If you added a new `DomainError`, register it in `presentation/api/error_handler
 ## 10. Verify
 
 ```bash
-bash scripts/checks/quality.sh
-uv run pytest
-uv run mutmut run --paths-to-mutate src/{{ cookiecutter.package_name }}/domain,src/{{ cookiecutter.package_name }}/application
+just lint
+just test-all
+just mutate
 ```

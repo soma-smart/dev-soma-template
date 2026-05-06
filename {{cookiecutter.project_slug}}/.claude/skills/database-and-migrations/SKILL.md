@@ -38,7 +38,7 @@ class <Entity>Model(Base):
 ## Generate a migration
 
 ```bash
-uv run alembic revision --autogenerate -m "add_<entity>_table"
+just migration "add_<entity>_table"
 ```
 
 **Read the generated file before committing.** Autogenerate is a starting point, not the truth. Watch out for:
@@ -52,15 +52,15 @@ uv run alembic revision --autogenerate -m "add_<entity>_table"
 Every migration must implement `downgrade()` non-trivially. The `script.py.mako` raises `NotImplementedError` if you forget — the CI test will fail. Test the round trip:
 
 ```bash
-uv run alembic upgrade head
-uv run alembic downgrade base
-uv run alembic upgrade head
+just migrate
+just migrate-down       # repeat until base
+just migrate
 ```
 
 ## Apply locally
 
 ```bash
-uv run alembic upgrade head
+just migrate
 ```
 
 In the devcontainer this happens automatically on `postStart`.

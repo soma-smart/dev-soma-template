@@ -10,13 +10,20 @@
 
 ## Five commands you need
 
+The project uses [`just`](https://just.systems) as a command runner — a thin
+shell over `uv run …`. The devcontainer ships it pre-installed; on bare metal
+install it once with `cargo install just` / `brew install just` / `apt install just`.
+
 ```bash
-uv sync --group dev                              # install deps
-uv run uvicorn {{ cookiecutter.package_name }}.presentation.api.app:app --reload
-uv run pytest -m unit                            # fast unit tests
-uv run pytest                                    # all (unit + integration + e2e)
-uv run mutmut run                                # mutation testing on domain + application
+just install     # uv sync --group dev
+just dev         # uvicorn with auto-reload
+just test        # fast unit tests
+just test-all    # unit + integration + e2e
+just mutate      # mutation testing on domain + application
 ```
+
+Type `just` (no args) to list every recipe. Each one is one line in `justfile`
+— inspect it instead of memorising flags.
 
 ## First time on this project
 

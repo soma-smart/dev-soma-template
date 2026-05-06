@@ -16,13 +16,14 @@ when_to_use: Editing helm/{{ cookiecutter.project_slug }}/**.
 ## Validate locally
 
 ```bash
-helm lint helm/<project_slug>
-helm template t helm/<project_slug> -f helm/<project_slug>/values-prod.yaml --set secrets.dbUrl=postgresql+asyncpg://test/test > /tmp/manifest.yaml
-kubeconform -strict -ignore-missing-schemas /tmp/manifest.yaml
-polaris audit --audit-path /tmp/manifest.yaml --format=pretty
+just helm-lint
+just helm-render            # default: prod overlay
+just helm-render dev        # any of dev / staging / prod
+# Then pipe into kubeconform / polaris if installed:
+just helm-render prod | kubeconform -strict -ignore-missing-schemas -
 ```
 
-CI runs the same in `ci-helm.yml`.
+CI runs the same checks in `ci-helm.yml` plus `polaris audit`.
 
 ## Common patterns
 

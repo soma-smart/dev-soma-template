@@ -42,12 +42,15 @@ infrastructure  ─→  application  ──→  domain
 
 ## Five commands you need
 
+The project uses `just` as command runner. Type `just` (no args) to see every
+recipe; each one is one line in `justfile`.
+
 ```bash
-uv sync --group dev
-uv run uvicorn {{ cookiecutter.package_name }}.presentation.api.app:app --reload
-uv run pytest -m unit
-uv run pytest                        # unit + integration + e2e
-uv run mutmut run
+just install     # uv sync --group dev
+just dev         # FastAPI with auto-reload
+just test        # fast unit tests
+just test-all    # unit + integration + e2e
+just mutate      # mutation testing on domain + application
 ```
 
 ## Then read these skills

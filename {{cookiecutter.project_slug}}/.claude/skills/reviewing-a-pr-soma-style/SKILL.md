@@ -46,9 +46,9 @@ when_to_use: User asks for a review; before requesting code review; checking a d
 ## Useful one-liners
 
 ```bash
-git diff main...HEAD --name-only        # files in the PR
-uv run ruff check src/ tests/ scripts/  # local lint
-uv run pytest                           # all tests
-uv run mutmut run                       # mutation
-helm lint helm/{{ cookiecutter.project_slug }}
+git diff main...HEAD --name-only   # files in the PR
+just lint                          # ruff + ty + custom architectural lints
+just test-all                      # unit + integration + e2e
+just mutate                        # mutation testing on domain + application
+just helm-lint
 ```

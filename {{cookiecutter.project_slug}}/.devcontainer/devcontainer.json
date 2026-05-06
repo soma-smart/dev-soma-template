@@ -21,11 +21,12 @@
       "username": "vscode",
       "uid": "automatic",
       "gid": "automatic"
-    }
+    },
+    "ghcr.io/guiyomh/features/just:0": {}
   },
 
-  "postCreateCommand": "uv sync --group dev && uv run pre-commit install --install-hooks --hook-type commit-msg --hook-type pre-push",
-  "postStartCommand": "uv run alembic upgrade head || true",
+  "postCreateCommand": "just install && just hooks",
+  "postStartCommand": "just migrate || true",
 
   "forwardPorts": [8000, 5432, 16686],
   "portsAttributes": {
