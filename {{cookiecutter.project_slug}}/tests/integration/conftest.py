@@ -66,10 +66,21 @@ async def pg_session(pg_engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
     real session with a real transaction; integrity errors surface as
     they would in production; the rollback at exit makes the next test
     start from a clean slate.
+
+    ``join_transaction_mode='create_savepoint'`` makes the session open
+    a SAVEPOINT for its writes inside the fixture's outer transaction.
+    An ``IntegrityError`` then rolls back only the savepoint, leaving
+    the outer transaction alive so the teardown rollback works without
+    raising ``SAWarning: transaction already deassociated from connection``.
     """
     async with pg_engine.connect() as conn:
         trans = await conn.begin()
-        factory = async_sessionmaker(bind=conn, class_=AsyncSession, expire_on_commit=False)
+        factory = async_sessionmaker(
+            bind=conn,
+            class_=AsyncSession,
+            expire_on_commit=False,
+            join_transaction_mode="create_savepoint",
+        )
         async with factory() as session:
             try:
                 yield session
