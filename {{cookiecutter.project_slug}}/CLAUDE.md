@@ -9,7 +9,7 @@
 
 Stack: Python {{ cookiecutter.python_version }}, FastAPI, SQLAlchemy 2.0 async, Alembic, structlog, OpenTelemetry. Architecture: Clean Architecture (Uncle Bob strict) with four layers — `domain`, `application`, `infrastructure`, `presentation`.
 
-The reference feature is `examples/feature_user_signup/` — read it before adding your first feature.
+The reference feature shipped in `src/` and `tests/` is the `POST /v1/users` flow (`User` entity → `CreateUserUseCase` → `SqlAlchemyUserRepository` → `users` table). Read the `onboarding-soma` skill for the file map. Projects without a user concept remove it via the README's "Removing the reference feature" runbook.
 
 ## When you do X, use skill Y
 
@@ -46,4 +46,4 @@ The reference feature is `examples/feature_user_signup/` — read it before addi
 
 - Architecture overview: [`docs/architecture.md`](docs/architecture.md)
 - ADRs: [`docs/adr/`](docs/adr/)
-- Reference feature: [`examples/feature_user_signup/`](examples/feature_user_signup/)
+- Reference feature file map: see the `onboarding-soma` skill
