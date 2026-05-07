@@ -21,9 +21,11 @@
       "username": "vscode",
       "uid": "automatic",
       "gid": "automatic"
-    },
-    "ghcr.io/guiyomh/features/just:0": {}
+    }
   },
+  // just is baked into the Dockerfile so it is present even when the stack
+  // is brought up with plain `docker compose up` (outside the devcontainer
+  // CLI flow that applies Features).
 
   "postCreateCommand": "just install && just hooks",
   "postStartCommand": "just migrate || true",

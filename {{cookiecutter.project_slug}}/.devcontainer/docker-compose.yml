@@ -47,7 +47,7 @@ services:
 
 {%- if cookiecutter.include_otel == "yes" %}
   jaeger:
-    image: jaegertracing/all-in-one:1.62
+    image: jaegertracing/all-in-one:1.75.0
     environment:
       COLLECTOR_OTLP_ENABLED: "true"
     ports:
@@ -56,7 +56,7 @@ services:
       - soma-dev
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.115.0
+    image: otel/opentelemetry-collector-contrib:0.140.0
     command: ["--config=/etc/otel-collector.yaml"]
     volumes:
       - ./otel-collector.yaml:/etc/otel-collector.yaml:ro

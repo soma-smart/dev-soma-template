@@ -56,3 +56,6 @@ Thumbs.db
 # Cookiecutter local bake outputs
 /tmp-bake/
 /.bake/
+# Locally baked test projects (any baked project living at the repo root).
+# Keep them out of version control so devs can experiment freely.
+/toto/
