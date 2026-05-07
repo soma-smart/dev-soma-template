@@ -21,7 +21,14 @@
       "username": "vscode",
       "uid": "automatic",
       "gid": "automatic"
-    }
+    },
+    // Installs docker CLI inside the container and reconciles the vscode
+    // user with the host docker.sock GID at postCreate, so testcontainers
+    // can spawn ephemeral Postgres for integration tests. When the stack
+    // is brought up with plain 'docker compose up' (outside the devcontainer
+    // CLI flow), this Feature does NOT run and the pg_url fixture skips
+    // integration tests cleanly — that path is the documented fallback.
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
   },
   // just is baked into the Dockerfile so it is present even when the stack
   // is brought up with plain `docker compose up` (outside the devcontainer

@@ -126,6 +126,12 @@ max-complexity = 10
 testpaths = ["tests"]
 addopts = "-ra --strict-markers"
 asyncio_mode = "auto"
+# Session-scoped event loop so session-scoped async fixtures (pg_engine,
+# pg_session) keep the same loop across tests. Without this, pytest-asyncio
+# 0.25+ creates a new loop per test and SQLAlchemy raises
+# "Future attached to a different loop".
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
 markers = [
     "unit: pure unit tests, no I/O, no testcontainers",
     "integration: require testcontainers or external service mocks",

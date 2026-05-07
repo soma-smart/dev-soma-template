@@ -10,11 +10,26 @@ services:
     command: sleep infinity
     volumes:
       - ../..:/workspaces:cached
+      # Mount the host docker.sock so testcontainers can spawn ephemeral
+      # containers from inside the devcontainer (used by integration tests).
+      # SECURITY: this gives the devcontainer root-equivalent access to the
+      # host. Standard trade-off for "Docker outside of Docker" dev setups.
+      # If you don't run integration tests from inside the devcontainer,
+      # comment this line out — the test fixture pg_url will skip cleanly.
+      - /var/run/docker.sock:/var/run/docker.sock
+    # Make host.docker.internal resolve from inside the devcontainer (Linux
+    # needs this; macOS/Windows resolve it automatically). testcontainers
+    # uses it to reach ephemeral PG containers running on the host.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       DB_URL: postgresql+asyncpg://app:app@postgres:5432/{{ cookiecutter.package_name }}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       LOG_FORMAT: console
       LOG_LEVEL: DEBUG
+      # testcontainers-python: rewrite the spawned container's host from
+      # localhost to host.docker.internal so our tests reach it.
+      TESTCONTAINERS_HOST_OVERRIDE: host.docker.internal
     depends_on:
       postgres:
         condition: service_healthy
