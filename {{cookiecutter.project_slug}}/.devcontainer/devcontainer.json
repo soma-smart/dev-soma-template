@@ -28,7 +28,14 @@
     // is brought up with plain 'docker compose up' (outside the devcontainer
     // CLI flow), this Feature does NOT run and the pg_url fixture skips
     // integration tests cleanly — that path is the documented fallback.
-    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+    //
+    // moby=false: install upstream docker-ce-cli rather than Moby. The
+    // Microsoft devcontainers/python:3.13 base ships a Debian release for
+    // which the Moby package is not published; the Feature errors out
+    // with a clear hint pointing at this exact option.
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+      "moby": false
+    }
   },
   // just is baked into the Dockerfile so it is present even when the stack
   // is brought up with plain `docker compose up` (outside the devcontainer
