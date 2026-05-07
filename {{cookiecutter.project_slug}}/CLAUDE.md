@@ -21,8 +21,7 @@ The reference feature is `examples/feature_user_signup/` — read it before addi
 | "Add a feature", "new use case", "new endpoint"  | `adding-a-use-case`            |
 | "Need a new EmailSender / Gateway / Hasher / ..." | `adding-a-new-abstraction` (BEFORE you write the abstract class) |
 | "New error", "domain exception"                  | `adding-a-domain-exception`    |
-| "Fix a bug", "write a test"                      | `tdd-workflow` then `writing-tests` |
-| Editing `tests/fakes/`                           | `writing-a-fake`               |
+| "Fix a bug", "write a test", editing `tests/fakes/` | `tdd-workflow` then `writing-tests` |
 | Editing `infrastructure/container.py` or `dependencies/` | `using-the-di-container` |
 | "Migration", "schema change", "alembic"          | `database-and-migrations`      |
 | Editing `infrastructure/observability/`          | `observability-patterns`       |

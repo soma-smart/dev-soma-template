@@ -1,47 +1,95 @@
 ---
 name: tdd-workflow
-description: Strict red-green-refactor TDD with mutation testing as the fourth step. Use whenever production code is about to change (feature, bug fix, refactor with behaviour change).
-when_to_use: Adding a feature; fixing a bug; any change to logic in domain/ or application/. NOT for pure refactor that does not change behaviour.
+description: Strict red-green-refactor TDD with mutation testing as the fourth step. Mandatory for any change that affects behaviour in domain/ or application/. NOT for pure refactor that preserves behaviour.
+when_to_use: User asks to add a feature, fix a bug, or change logic. Skip this skill only when the change is a pure-refactor (rename, extract, inline) that does not change observable behaviour.
 ---
 
 # TDD workflow
 
-The loop is **mandatory** for any change that affects behaviour in `domain/` or `application/`.
+Four steps, in order. Step 4 is the one everyone forgets and the one mutmut catches in CI.
 
-## 1. Red
+## 1. Red — write the failing test first
 
-Write a failing test for the smallest behaviour you want. The test must fail for the right reason (assertion, not import error).
+A test that fails for the right reason (assertion fails, not `ImportError`).
 
-- Tests live under `tests/unit/domain/` or `tests/unit/application/`.
-- Format: `test_given_<context>_when_<action>_then_<expectation>` plus `# GIVEN`, `# WHEN`, `# THEN` comment blocks (or `# WHEN / THEN` combined for `pytest.raises`).
-- Use Fakes from `tests/fakes/` — no `unittest.mock`, no Mock, no MagicMock, no Stub, no Spy.
-- Run `uv run pytest -m unit` and confirm the new test fails.
+- Lives under `tests/unit/domain/` or `tests/unit/application/`.
+- Naming + body format are mandatory — see the `writing-tests` skill.
+- Use Fakes from `tests/fakes/`. Never `unittest.mock`. Never `Mock`, `MagicMock`, `Spy`, `Stub`.
 
-## 2. Green
+Run `just test` and confirm the new test **fails**.
 
-Write the **minimum** production code that makes the test pass. No additional features. No "while I'm here". No premature abstraction.
+## 2. Green — minimum code to pass
 
-Run `uv run pytest -m unit` and confirm it passes.
+Implement the smallest amount of production code that turns the test green.
 
-## 3. Refactor
+- No additional features. No "while I'm here". No premature abstraction.
+- If you find yourself adding a second branch the test does not cover, stop, write a second failing test, then add the branch.
 
-Clean up while the bar is green. Names, dead code, duplication. Run the tests after each meaningful change. If you break something, undo and try again.
+Run `just test` and confirm it passes.
 
-## 4. Mutate
+## 3. Refactor — clean up under the green bar
 
-This is the step everyone forgets. Run mutation testing on the surface you just touched:
+While every test is green: rename, extract, inline, deduplicate. After each meaningful change, re-run `just test`. A red bar during refactor means undo, not push through.
+
+## 4. Mutate — let mutmut grade your tests
 
 ```bash
 just mutate           # mutmut on domain + application (paths set in pyproject)
 just mutate-results   # show the latest report
 ```
 
-If mutants survive → your tests are too lax → write another failing test that catches the missing behaviour → back to step 1.
+A surviving mutant is a free hole through your test suite. Treat it like a new red bar:
 
-The 90% mutation score floor is enforced by `ci-mutation.yml` on PRs.
+1. Read the surviving mutant — it shows the line and the mutation that survived.
+2. Write a new failing test that would die against that mutation.
+3. Re-run `just test` (red), then re-run the steps.
 
-## Strict rules
+The CI `ci-mutation.yml` workflow enforces a 90% kill rate floor on PRs that touch `src/` or `tests/`.
 
-- **No production code without a failing test first.** This is non-negotiable.
-- **Never disable a failing test to make CI green.** Fix the test or fix the code; reverting the change is also acceptable.
-- **Never skip step 4 when domain/application logic was touched.** Coverage without mutation kills hides weak assertions.
+## Worked example: `Email.value` lower-cased
+
+### Red
+
+```python
+# tests/unit/domain/test_email.py
+def test_given_uppercase_input_when_constructing_email_then_value_is_lowercase() -> None:
+    # GIVEN
+    raw = "Alice@Example.COM"
+
+    # WHEN
+    email = Email(raw)
+
+    # THEN
+    assert email.value == "alice@example.com"
+```
+
+`just test` → fails (`assert "Alice@Example.COM" == "alice@example.com"`).
+
+### Green
+
+```python
+# domain/value_objects/email.py
+@dataclass(frozen=True, slots=True)
+class Email(ValueObject):
+    value: str
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "value", self.value.lower())
+```
+
+`just test` → passes.
+
+### Refactor
+
+Add the regex validation that lives in the production code. Run `just test` between every change.
+
+### Mutate
+
+`just mutate` flips `self.value.lower()` to `self.value.upper()` and `self.value.title()`. Both must die (they do, because the test asserts the exact lowercase form).
+
+## Hard rules
+
+- **No production code without a failing test first.** Non-negotiable.
+- **Never disable a failing test to make CI green.** Either fix the test or fix the code, or revert the change.
+- **Never skip step 4 when `domain/` or `application/` logic was touched.** Line coverage without mutation kill rate is a comforting lie.
+- **Bug fixes follow the same loop.** A bug = a missing test. Write the test that reproduces the bug (red), then fix the code (green).
