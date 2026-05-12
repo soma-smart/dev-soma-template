@@ -1,0 +1,19 @@
+{% raw %}{{- if and .Values.relay.enabled .Values.metrics.enabled -}}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "app.fullname" . }}-relay
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: relay
+spec:
+  selector:
+    matchLabels:
+      {{- include "app.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: relay
+  endpoints:
+    - port: metrics
+      path: {{ .Values.metrics.path }}
+      interval: {{ .Values.metrics.interval }}
+{{- end }}
+{% endraw %}

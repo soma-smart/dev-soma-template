@@ -45,6 +45,11 @@ class Settings(BaseSettings):
     request_max_body_bytes: int = 1_048_576  # 1 MiB
     request_timeout_seconds: float = 30.0
 
+    # ── Outbox relay ─────────────────────────────────────────────────
+    # Port on which the relay process exposes /metrics (Prometheus).
+    # Scraped by a dedicated ServiceMonitor — see writing-a-helm-change.
+    relay_metrics_port: int = 9100
+
     # ── Auth ─────────────────────────────────────────────────────────
     # Bearer-JWT verification. See ``infrastructure/auth/jwt_verifier.py``
     # and the ``adding-auth`` skill for the swap path to a real IdP.

@@ -42,6 +42,34 @@ services:
     networks:
       - soma-dev
 
+  # Outbox relay sidecar — auto-starts so domain events emitted by the API
+  # flow through to handlers without manual intervention. Shares the same
+  # workspace mount as `app` so it picks up code changes; restarts in a
+  # loop while migrations haven't run yet (table missing → restart).
+  relay:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /workspaces/{{ cookiecutter.project_slug }}
+    command: ["sh", "-c", "uv sync --group dev && uv run python -m {{ cookiecutter.package_name }}.infrastructure.jobs.outbox_relay"]
+    volumes:
+      - ../..:/workspaces:cached
+    environment:
+      DB_URL: postgresql+asyncpg://app:app@postgres:5432/{{ cookiecutter.package_name }}
+      LOG_FORMAT: console
+      LOG_LEVEL: DEBUG
+{%- if cookiecutter.include_otel == "yes" %}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+{%- endif %}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    ports:
+      - "9100:9100"   # Prometheus /metrics: curl localhost:9100/metrics
+    networks:
+      - soma-dev
+
   postgres:
     image: postgres:17
     environment:

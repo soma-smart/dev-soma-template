@@ -119,24 +119,112 @@ Multiple handlers per event are allowed — they run sequentially in registratio
 
 `infrastructure/jobs/outbox_relay.py` is a polling loop:
 
-* Reads up to `BATCH_SIZE` (100) unpublished rows ordered by `created_at`.
+* Reads up to `BATCH_SIZE` (100) due rows (`status='pending'` AND `next_attempt_at IS NULL OR <= now()`) ordered by `created_at`.
+* Locks the picked rows via `SELECT FOR UPDATE SKIP LOCKED` so concurrent relay replicas process disjoint batches.
 * For each row, calls `_publish_event(event_name, payload)` which dispatches to registered handlers.
-* Marks `published_at = now()` only when **every** handler returns successfully. A handler exception leaves the row alone for the next tick.
+* On success, transitions the row to `status='published'` with `published_at = now()`.
+* On handler exception, increments `attempts`, records `last_error`, and schedules a retry via `next_attempt_at = now() + compute_next_attempt(attempts)`.
+* After `MAX_ATTEMPTS` failures (default 10), the row becomes `status='poisoned'` and is no longer picked up.
 * Sleeps 1s when nothing is pending; traps `SIGTERM` / `SIGINT` to drain cleanly.
 
-Run it as a separate container next to the API:
+The relay ships as a **separate Deployment** (`<release>-relay`) in the
+Helm chart — same image as the API, command override. Toggle via
+`relay.enabled` in values; scale via `relay.replicaCount`
+(SKIP LOCKED is safe with >1). Locally, the devcontainer's
+`docker-compose.yml` starts a `relay` sidecar that auto-restarts until
+the schema is ready — events flow without manual setup.
+
+To run the relay manually outside any orchestrator:
 
 ```bash
 uv run python -m {{ cookiecutter.package_name }}.infrastructure.jobs.outbox_relay
 ```
 
-### Multi-replica caveat
+### Row lifecycle
 
-Running multiple relay pods will dispatch every event on every pod — handlers must be idempotent OR the deployment must keep a single replica (`replicaCount: 1` in the values overlay). The default Helm chart ships a separate Deployment for the relay; pick the strategy that matches the handlers you ship.
+```
+INSERT
+   │
+   ▼
+status=pending, attempts=0, next_attempt_at=NULL
+   │
+   ├── handler ok ─────────────▶ status=published, published_at=now()  (terminal)
+   │
+   └── handler raises ─────────▶ attempts++,
+                                 last_attempt_at=now(),
+                                 last_error=repr(exc),
+                                 next_attempt_at=now()+backoff(attempts)
+                                       │
+                                       ├── attempts < MAX_ATTEMPTS ─▶ stays pending, retried after backoff
+                                       │
+                                       └── attempts >= MAX_ATTEMPTS ▶ status=poisoned  (terminal until manual replay)
+```
 
-### Backoff + alerting (to add before prod)
+### Backoff schedule
 
-A row stuck unpublished for more than N minutes is a paging condition. The default loop has no exponential backoff on repeated handler failure — add one before going to prod, otherwise a perpetually-failing handler will poll the row every second forever.
+Defined in `infrastructure/jobs/backoff.py` — edit the file to tune:
+
+| Attempts (post-failure) | Next attempt in |
+|---|---|
+| 1 | 1 second |
+| 2 | 5 seconds |
+| 3 | 30 seconds |
+| 4 | 2 minutes |
+| 5 | 10 minutes |
+| 6 | 30 minutes |
+| 7+ | 1 hour (capped) |
+
+Total elapsed time before poison ≈ 3 hours at `MAX_ATTEMPTS=10`.
+
+### Multi-replica safety
+
+`SELECT FOR UPDATE SKIP LOCKED` on Postgres lets you scale the relay
+out — each replica locks its batch, others skip locked rows. Bumping
+`relay.replicaCount` in values is therefore safe. SQLite (used only by
+unit tests) silently ignores the clause; integration tests run on real
+Postgres so the lock semantics are exercised.
+
+### Metrics
+
+`infrastructure/jobs/outbox_metrics.py` exposes:
+
+* `outbox_events_pending` (gauge) — backlog size
+* `outbox_events_poisoned` (gauge) — count of dead-lettered rows
+* `outbox_oldest_pending_age_seconds` (gauge) — primary lag signal
+* `outbox_handler_failures_total{event_name}` (counter) — failure rate per event
+
+The relay process exposes them via `prometheus_client.start_http_server`
+on `Settings.relay_metrics_port` (default `9100`). The relay
+ServiceMonitor scrapes the dedicated `<release>-relay` Service when
+`metrics.enabled=true`. Gauges are refreshed at the end of every drain
+tick.
+
+Suggested alert thresholds (for a future `PrometheusRule` in the chart):
+
+| Alert | Threshold | What it means |
+|---|---|---|
+| `OutboxBacklog` | `outbox_events_pending > 1000` for 5m | Producer is outpacing the relay, or relay is stuck |
+| `OutboxLag` | `outbox_oldest_pending_age_seconds > 300` | A row has been pending >5min — relay or downstream is failing |
+| `OutboxPoisoned` | `outbox_events_poisoned > 0` | Manual triage required |
+| `OutboxHandlerErrors` | `rate(outbox_handler_failures_total[5m]) > 0.1` | A handler regression or downstream outage |
+
+### Manual replay of a poisoned row
+
+Until an admin endpoint ships, requeue a single row via SQL:
+
+```sql
+UPDATE outbox_events
+SET status = 'pending',
+    attempts = 0,
+    last_attempt_at = NULL,
+    next_attempt_at = NULL,
+    last_error = NULL
+WHERE id = '<row-uuid>';
+```
+
+The relay picks it up on the next tick. Investigate `last_error` before
+clearing it — a row poisoned the same way twice usually means the
+handler or the payload is the problem, not the downstream.
 
 ## Disabling the outbox
 

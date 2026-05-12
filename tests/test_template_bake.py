@@ -141,6 +141,9 @@ def test_given_combo_when_baking_then_succeeds(cookies, combo_id: str, context: 
         assert not (project / "helm").exists()
     elif context.get("include_helm") == "yes":
         assert (project / "helm").is_dir()
+        helm_templates = next(iter((project / "helm").iterdir())) / "templates"
+        for relay_template in ("relay-deployment.yaml", "relay-service.yaml", "relay-servicemonitor.yaml"):
+            assert (helm_templates / relay_template).is_file(), f"missing relay template {relay_template}"
     if context.get("frontend_sdk") == "typescript":
         assert (project / "scripts" / "export_openapi.py").is_file()
         assert (project / ".github" / "workflows" / "sdk-typescript.yml").is_file()

@@ -125,11 +125,27 @@ migrations:
       cpu: 500m
       memory: 512Mi
 
-# Optional ServiceMonitor for Prometheus scraping.
+# Optional ServiceMonitor for Prometheus scraping of the API pod.
 metrics:
   enabled: false
   interval: 30s
   path: /metrics
+
+# Outbox relay — separate Deployment that polls outbox_events and dispatches
+# rows through the in-process handler registry (see ADR 0005 +
+# transactions-and-events skill). Same image as the API, different command.
+# Turn off via relay.enabled=false on projects that don't publish events.
+relay:
+  enabled: true
+  replicaCount: 1   # SKIP LOCKED is safe with >1; default kept conservative
+  metricsPort: 9100
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
 
 nodeSelector: {}
 tolerations: []
