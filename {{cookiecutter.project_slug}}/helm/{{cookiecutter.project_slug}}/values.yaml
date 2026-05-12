@@ -130,6 +130,21 @@ metrics:
   enabled: false
   interval: 30s
   path: /metrics
+  # PrometheusRule with sensible defaults. Tune the thresholds to your
+  # traffic profile before going live — defaults err on the conservative
+  # side to avoid alert fatigue. See the ``transactions-and-events`` and
+  # ``writing-a-helm-change`` skills for the lifecycle of each alert.
+  alerts:
+    enabled: false
+    # Extra labels merged into every alert — drive Alertmanager routing
+    # (team → channel, severity → page).
+    labels: {}
+    thresholds:
+      outboxBacklog: 1000             # rows pending — backlog signal
+      outboxLagSeconds: 300           # oldest pending age — primary lag signal
+      outboxHandlerErrorRate: 0.1     # handler failures / sec sustained over 5m
+      api5xxRate: 0.01                # fraction of 5xx responses sustained over 5m
+      apiP99LatencySeconds: 1.0       # /metrics histogram p99
 
 # Outbox relay — separate Deployment that polls outbox_events and dispatches
 # rows through the in-process handler registry (see ADR 0005 +

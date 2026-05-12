@@ -24,6 +24,10 @@ helm/<project_slug>/
     ├── ingress.yaml           # opt-in via ingress.enabled
     ├── migration-job.yaml     # Helm pre-install / pre-upgrade Job running 'alembic upgrade head'
     ├── pdb.yaml               # PodDisruptionBudget (opt-in)
+    ├── prometheusrule.yaml    # alert rules (opt-in via metrics.alerts.enabled)
+    ├── relay-deployment.yaml  # outbox relay worker (opt-in via relay.enabled)
+    ├── relay-service.yaml     # ClusterIP exposing the relay's /metrics on 9100
+    ├── relay-servicemonitor.yaml # Prometheus scrape of the relay
     ├── secret.yaml            # rendered iff secrets.dbUrl is set; otherwise external secrets fill it
     ├── service.yaml
     ├── serviceaccount.yaml
@@ -59,7 +63,9 @@ CI runs the same checks in `ci-helm.yml`: `helm lint`, `helm template` on defaul
 
 * **New env var the app reads.** Add it under `values.yaml::config.<name>`, declare it in `values.schema.json`, render it in `templates/configmap.yaml` as a key under `data:`. Then read it from `Settings` in `infrastructure/config/settings.py`. The Deployment already pulls `envFrom: configMapRef: <fullname>-config`, no template change needed.
 * **New secret.** Extend `values.yaml::secrets`, declare in the schema, render in `templates/secret.yaml` under `stringData:`. The Deployment is already wired to `envFrom: secretRef:` (rendered conditionally on the secret existing).
-* **Enable metrics scraping.** Flip `metrics.enabled: true` in the overlay — the `ServiceMonitor` template renders, a Prometheus Operator picks it up. The `/metrics` endpoint is always exposed by the app regardless; the gate is on cluster-side scraping.
+* **Enable metrics scraping.** Flip `metrics.enabled: true` in the overlay — the `ServiceMonitor` template renders (for the API on port `http` and the relay on port `metrics`), a Prometheus Operator picks them up. The `/metrics` endpoint is always exposed by the app and the relay regardless; the gate is on cluster-side scraping.
+* **Enable alert rules.** Set `metrics.alerts.enabled: true`. Renders a `PrometheusRule` with 4 outbox alerts (backlog, lag, poisoned, handler error rate), 3 API alerts (5xx rate, p99 latency, no replicas), and 1 relay availability alert (no replicas). Tune thresholds under `metrics.alerts.thresholds.*` per env. Use `metrics.alerts.labels` to inject routing labels (e.g. `team: backend`) for Alertmanager.
+* **Add a new alert.** Append a `rule` entry under the right group in `templates/prometheusrule.yaml`. Each rule needs `alert`, `expr`, `for`, `labels.severity` (`warning` or `critical`), `annotations.summary` and `annotations.description`. If the alert references a threshold, declare a default in `values.yaml::metrics.alerts.thresholds` and add it to `values.schema.json`. Cross-link the runbook procedure in the description (most outbox runbooks live in the `transactions-and-events` skill).
 * **New Helm hook Job (besides migrations).** Copy the structure from `templates/migration-job.yaml`. Set `helm.sh/hook-weight` to control ordering relative to the migrations job (which is at weight `-5`, so it runs first).
 * **Tune resources / replicas / autoscaling per env.** Edit the overlay (`values-<env>.yaml`), not the base `values.yaml`. The base carries safe defaults; overlays carry the env-specific tuning.
 
