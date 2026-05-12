@@ -49,13 +49,23 @@ The reference feature shipped in `src/` and `tests/` is the `POST /v1/users` flo
 
 ## Custom sub-agents
 
-This project ships five custom sub-agents under `.claude/agents/` to keep token usage scoped. Each one loads only the skill(s) it needs and runs in a fresh context.
+This project ships eight custom sub-agents under `.claude/agents/`. They split into two families: **feature-level builders** (produce a vertical slice from a business-intent brief) and **tech-narrow utilities** (surgical edits on one file type). See `orchestrating-feature-dev` for the dispatch rules.
 
-- `soma-unit-test-writer` — TDD unit tests with Fakes + mutmut
-- `soma-integration-test-writer` — integration tests against testcontainers Postgres
-- `soma-migration-writer` — Alembic autogen + cure + upgrade/downgrade roundtrip
-- `soma-helm-engineer` — chart edits + `helm lint` / `kubeconform` / `polaris`
-- `soma-event-sourcing-bootstrapper` — scaffolds the 4 files for event-sourcing a named entity (lite ES variant)
+**Feature-level builders** — the main agent dispatches these after designing the Protocol / DTO / event / error contracts:
+
+- `soma-use-case-builder` — domain + application + Fake + unit tests (TDD ≥ 90% mutation). Extends the Repository Protocol with business-named methods.
+- `soma-persistence-builder` — SQLAlchemy model + Alembic migration + repository impl + integration tests. Reads the Protocol docstrings as the WHERE-clause contract.
+- `soma-route-builder` — Pydantic schema + FastAPI route + container factory + dependency wrapper + e2e tests.
+
+**Tech-narrow utilities** — for surgical work, not for building new features:
+
+- `soma-migration-writer` — standalone schema change (alter column, add index, data migration) independent of a new repo.
+- `soma-helm-engineer` — chart edits + `helm lint` / `kubeconform` / `polaris`.
+- `soma-event-sourcing-bootstrapper` — scaffolds the 4 lite-ES files for a named entity (architect decides per `event-sourcing-pattern`).
+- `soma-unit-test-writer` — fills a coverage gap on EXISTING code; NOT for new use cases (the builder writes its own tests).
+- `soma-integration-test-writer` — fills a coverage gap on an EXISTING repo; NOT for new repos.
+
+The main agent is the **architect**: it designs the contracts (Protocol shape, DTO, events, errors, status codes) and writes self-contained briefs for the builders. It does not author production code except for cross-cutting concerns (adding a new shared Protocol, updating `ERROR_HTTP_MAPPING`). PR review uses Anthropic's built-in `pr-review-toolkit:*` agents plus the `reviewing-a-pr-soma-style` skill — no custom reviewer ships here.
 
 Dispatch through the `orchestrating-feature-dev` skill or invoke an agent directly with the `Task` tool when the work is narrowly scoped. PR review uses Anthropic's built-in `pr-review-toolkit:*` agents plus the `reviewing-a-pr-soma-style` skill — no custom reviewer ships here.
 

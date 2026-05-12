@@ -81,6 +81,70 @@ Prefix by mechanism. Reads as "this is the X-flavoured implementation of role Y"
 * **Pydantic schemas (presentation)** — `…Schema` (`UserCreateSchema`, `ErrorResponseSchema`).
 * **SQLAlchemy models (infrastructure)** — `…Model` (`UserModel`). Disambiguates from the domain `User`.
 
+## Repository method naming — methods are business questions
+
+The base `Repository[TEntity, TId]` Protocol ships only the two truly generic methods: `add(entity)` and `find_by_id(id)`. Every other method on a sub-Protocol (e.g. `TodoListRepository`, `UserRepository`) is **added by the use case that needs it**, and its **name must describe a business question, not a SQL operation**. The docstring is the contract — it explains the filter semantics so the persistence binding can implement the right `WHERE` without guessing.
+
+### Anti-pattern table
+
+| ❌ Tech-flat | ✅ Business-shaped | Why |
+|---|---|---|
+| `get_by_owner(owner_id)` | `list_owned_by(owner_id)` | Verb says "give me all", and `list_*` signals a collection result, not a single row |
+| `get_by_id_and_owner(id, owner_id)` | `find_owned_by(owner_id, id)` | The "owned-by" check is the business intent, not a `WHERE owner_id = ? AND id = ?` filter |
+| `get_by_name(name)` | `find_active_by_owner_and_name(owner_id, name)` | The active filter is part of the contract (excludes soft-deleted); also scopes by owner because globally unique names rarely make sense |
+| `update_email(id, new_email)` | `record_email_change(user, new_email)` | The operation has a business meaning (audit trail, event emission) that the method name should evoke |
+| `delete(id)` | `archive(id)` (soft) or `purge(id)` (hard) | Distinguishes two real domain operations under one CRUD verb |
+| `check_exists(email)` | `is_email_taken(email)` | Question business, not technical check |
+| `count(filter)` | `count_pending_for_owner(owner_id)` | Names the subset being counted; readers don't need to inspect the filter |
+| `find_recent(limit)` | `find_recently_active_by_owner(owner_id, since)` | "Recent" without a window is undefined; "by_owner" makes the scope explicit |
+
+### The contract = the docstring
+
+The Protocol's docstring on each method is the **only** brief the persistence binding has. It must explicitly cover:
+
+- What the method returns when the row doesn't exist (`None` vs. empty list vs. raise)
+- Which rows are filtered out (soft-deleted? archived? draft state?)
+- Whether the result is ordered (and by what)
+- Which other Protocol method, if any, this one complements
+
+Example of a complete contract:
+
+```python
+class TodoListRepository(Repository[TodoList, TodoListId], Protocol):
+    """Persistence contract for the TodoList aggregate.
+
+    Methods carry the ubiquitous language of TodoList ownership and
+    lifecycle — names describe business questions, not SQL operations.
+    """
+
+    async def find_active_by_owner_and_name(
+        self, owner_id: UserId, name: str
+    ) -> TodoList | None:
+        """Return the non-deleted list named ``name`` owned by ``owner_id``.
+
+        Used by ``CreateTodoListUseCase`` for the uniqueness check before
+        creation. Soft-deleted lists are ignored — re-creating a list
+        with the same name after deletion is permitted.
+
+        Returns ``None`` when no active list matches.
+        """
+        ...
+
+    async def list_owned_by(self, owner_id: UserId) -> list[TodoList]:
+        """Return all active lists owned by ``owner_id``, oldest first.
+
+        Used by the user's dashboard. Sharee'd lists are NOT included —
+        see ``find_shared_with`` for that.
+        """
+        ...
+```
+
+If a use case needs `find_by_id` (without a state filter), use the inherited one. The moment the question carries a state filter ("the active one with this id", "the not-yet-completed one"), prefer a named method.
+
+### Bad smell : a Repository that looks like an ORM
+
+If the Repo has methods like `find_by_X(value)` for every field, you've recreated a generic `Repository[Entity].query(field=value)`. That's a sign the use cases are too thin — they're using the Repo as a "give me a row" facade. The fix is to push the business intent INTO the Repo method names.
+
 ## Variables and function arguments
 
 * `email`, not `email_address` — context already says it's an address.

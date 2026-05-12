@@ -17,6 +17,13 @@ when_to_use: Designing a new feature; reviewing an import; refactoring across la
 
 The dependency rule: **every arrow points inward** (`presentation` → `application` → `domain`; `infrastructure` → `application` → `domain`). For the deeper rules on what `domain/` may contain, see `writing-domain-code`.
 
+### The Protocol layer = business contract, not technical mapping
+
+A Protocol in `application/` is not a thin wrapper over a SQL table or an HTTP client. Its **method names describe business questions** ("is this name free for this owner?", "give me the unfinished item with this id"), and its **docstrings are the contract** that the persistence binding follows. Two consequences:
+
+* Adding a new method to a Repository Protocol is a deliberate act — done by the use case that needs the question answered, not pre-emptively. See `naming-conventions` for the anti-patterns to avoid and `adding-a-use-case` for how each use case extends its Protocol.
+* The persistence binding never invents methods — it implements exactly what the Protocol declares, exactly as the docstring describes.
+
 ## Where does X go?
 
 | Thing | Layer | Folder |

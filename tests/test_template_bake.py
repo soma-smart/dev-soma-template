@@ -70,6 +70,9 @@ def test_given_default_inputs_when_baking_then_creates_expected_layout(cookies) 
         "soma-migration-writer.md",
         "soma-helm-engineer.md",
         "soma-event-sourcing-bootstrapper.md",
+        "soma-use-case-builder.md",
+        "soma-persistence-builder.md",
+        "soma-route-builder.md",
     ):
         assert (agents_dir / agent_file).is_file(), f"missing agent {agent_file}"
     assert (project / ".claude" / "skills" / "event-sourcing-pattern" / "SKILL.md").is_file()

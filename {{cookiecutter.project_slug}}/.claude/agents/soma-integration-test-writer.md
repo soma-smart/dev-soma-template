@@ -1,6 +1,6 @@
 ---
 name: soma-integration-test-writer
-description: Writes integration tests under tests/integration/ using the testcontainers Postgres fixture. Proves SQLAlchemy mappers, unique constraints, and transaction semantics actually work. Refuses unit tests, e2e tests, helm, or migration work.
+description: NARROW UTILITY — adds integration tests to EXISTING repository implementations against the testcontainers Postgres fixture. NOT for building a new repository (use `soma-persistence-builder`, which writes the model + migration + impl + tests as one vertical slice). Use this agent for "cover an invariant that's not yet tested on an existing repo", "add a regression test for a SQL bug". Refuses unit tests, e2e tests, helm, or migration work.
 tools: Read, Edit, Write, Grep, Glob, Bash
 ---
 

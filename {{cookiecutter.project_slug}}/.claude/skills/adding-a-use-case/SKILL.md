@@ -31,6 +31,38 @@ For the rules domain code must follow (no third-party, no `datetime.now()`, no `
 
 **Before declaring a new collaborator**, read `adding-a-new-abstraction`. The existing protocols (`Clock`, `IdGenerator`, `RandomSource`, `EventBus`, `AuditLog`, `Repository`) cover most "I need a new port" thoughts.
 
+### Extending a Repository Protocol with business-named methods
+
+The base `Repository[TEntity, TId]` Protocol ships only `add` and `find_by_id`. **Every other method is added by the use case that needs it**, named after the business question being asked, not the SQL operation.
+
+A use case that needs to check "is this name available for this owner?" adds:
+
+```python
+class TodoListRepository(Repository[TodoList, TodoListId], Protocol):
+    """Persistence contract for the TodoList aggregate.
+
+    Methods carry the ubiquitous language of TodoList ownership and lifecycle.
+    """
+
+    async def find_active_by_owner_and_name(
+        self, owner_id: UserId, name: str
+    ) -> TodoList | None:
+        """Return the non-deleted list named ``name`` owned by ``owner_id``.
+
+        Used by CreateTodoListUseCase for the uniqueness check before
+        creation. Soft-deleted lists are ignored.
+        """
+        ...
+```
+
+Naming rules (full table + anti-pattern examples in `naming-conventions`):
+
+- The method name is a **business question**, not a SQL recipe. `find_active_by_owner_and_name` over `get_by_owner_and_name`.
+- The **docstring is the contract** — explains which rows are filtered out (soft-deleted? archived?), what's returned when nothing matches, and which other Protocol method it complements.
+- When the use case is built, the Fake repo under `tests/fakes/repositories/` MUST implement the new method so the unit tests run. The persistence binding picks it up later via its own builder.
+
+A common mistake: dumping a `find_by_X(value)` for every field on the Repo. That's an ORM with extra steps. If the use case can express the question in business terms, the method should be named in business terms.
+
 ## 3. The use case
 
 `application/use_cases/<verb>_<noun>.py`:

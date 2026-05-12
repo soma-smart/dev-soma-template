@@ -1,6 +1,6 @@
 ---
 name: soma-unit-test-writer
-description: Writes unit tests TDD-style under tests/unit/ with Fakes only (no Mock/MagicMock/patch). Runs mutmut on touched paths and reports kill-rate. Refuses integration, e2e, helm, or migration work — dispatch those to the matching soma-* agent.
+description: NARROW UTILITY — adds unit tests to EXISTING use cases / domain code that already ship. Runs mutmut and reports kill-rate. NOT for building a new use case (use `soma-use-case-builder` instead, which writes the use case AND its tests as one vertical slice). Use this agent for "fill a coverage gap on X", "add a regression test for bug Y", "test the edge case Z on an existing entity". Refuses integration, e2e, helm, or migration work — dispatch those to the matching soma-* agent.
 tools: Read, Edit, Write, Grep, Glob, Bash
 ---
 
