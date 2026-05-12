@@ -28,6 +28,7 @@ The reference feature shipped in `src/` and `tests/` is the `POST /v1/users` flo
 | Naming a class, function, or module              | `naming-conventions`           |
 | Editing `helm/`                                  | `writing-a-helm-change`        |
 | "Protect a route", "JWT", role check, "401/403"  | `adding-auth`                  |
+| "Idempotency-Key", "retry safe", 409/422 idempotency | `idempotency-and-retries`  |
 | "Review this PR"                                 | `reviewing-a-pr-soma-style`    |
 | Feature spans more than one layer; orchestrating sub-agents | `orchestrating-feature-dev` |
 

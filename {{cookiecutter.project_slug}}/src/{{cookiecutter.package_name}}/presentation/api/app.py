@@ -33,6 +33,7 @@ from {{ cookiecutter.package_name }}.presentation.api.health import router as he
 from {{ cookiecutter.package_name }}.presentation.api.middleware import (
     AccessLogMiddleware,
     BodySizeLimitMiddleware,
+    IdempotencyMiddleware,
     RequestIdMiddleware,
     RequestTimeoutMiddleware,
     SecurityHeadersMiddleware,
@@ -80,8 +81,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Middleware order: the LAST ``add_middleware`` becomes the OUTERMOST
     # wrapper. We want, from outermost to innermost:
     #   RequestId -> AccessLog -> BodySizeLimit -> RequestTimeout -> CORS ->
-    #   SecurityHeaders -> handler
+    #   Idempotency -> SecurityHeaders -> handler
+    # Idempotency sits close to the handler so timing/body-limit middleware
+    # don't get bypassed on a cached replay.
     app.add_middleware(SecurityHeadersMiddleware)
+    if settings.idempotency_enabled:
+        app.add_middleware(
+            IdempotencyMiddleware,
+            methods=frozenset(settings.idempotency_methods),
+            ttl_seconds=settings.idempotency_ttl_seconds,
+        )
     if settings.cors_allowed_origins:
         app.add_middleware(
             CORSMiddleware,

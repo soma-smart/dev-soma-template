@@ -50,6 +50,24 @@ class Settings(BaseSettings):
     # Scraped by a dedicated ServiceMonitor — see writing-a-helm-change.
     relay_metrics_port: int = 9100
 
+    # ── Idempotency ──────────────────────────────────────────────────
+    # Bearer-style retry safety. Clients send Idempotency-Key: <uuid>
+    # on retry-eligible writes; the middleware caches and replays the
+    # original response. See adding-idempotency-safety skill.
+    idempotency_enabled: bool = True
+    idempotency_methods: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["POST", "PUT", "PATCH", "DELETE"]
+    )
+    idempotency_ttl_seconds: int = 86_400  # 24h
+
+    @field_validator("idempotency_methods", mode="before")
+    @classmethod
+    def _split_methods(cls, value: Any) -> Any:
+        """Accept comma-separated env-var override (POST,PUT,PATCH,DELETE)."""
+        if isinstance(value, str):
+            return [item.strip().upper() for item in value.split(",") if item.strip()]
+        return value
+
     # ── Auth ─────────────────────────────────────────────────────────
     # Bearer-JWT verification. See ``infrastructure/auth/jwt_verifier.py``
     # and the ``adding-auth`` skill for the swap path to a real IdP.
