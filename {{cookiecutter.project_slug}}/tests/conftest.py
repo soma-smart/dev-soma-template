@@ -16,6 +16,7 @@ import pytest
 
 from {{ cookiecutter.package_name }}.application.use_cases.create_user import CreateUserUseCase
 from tests.fakes.clock import FrozenClock
+from tests.fakes.event_bus import InMemoryEventBus
 from tests.fakes.id_generator import SequentialIdGenerator
 from tests.fakes.random_source import SeededRandomSource
 from tests.fakes.repositories.user import InMemoryUserRepository
@@ -45,11 +46,23 @@ def user_repository() -> InMemoryUserRepository:
     return InMemoryUserRepository()
 
 
+# ─── Event bus fake (also acts as Spy via .published) ────────────────
+@pytest.fixture
+def event_bus() -> InMemoryEventBus:
+    return InMemoryEventBus()
+
+
 # ─── Use case composed for unit + e2e tests ──────────────────────────
 @pytest.fixture
 def create_user_use_case(
     user_repository: InMemoryUserRepository,
     frozen_clock: FrozenClock,
     sequential_ids: SequentialIdGenerator,
+    event_bus: InMemoryEventBus,
 ) -> CreateUserUseCase:
-    return CreateUserUseCase(users=user_repository, clock=frozen_clock, ids=sequential_ids)
+    return CreateUserUseCase(
+        users=user_repository,
+        clock=frozen_clock,
+        ids=sequential_ids,
+        events=event_bus,
+    )

@@ -1,19 +1,26 @@
-"""Outbox relay — forwards pending outbox rows to the configured broker.
+"""Outbox relay — forwards pending outbox rows to in-process handlers.
 
 Run as a separate process or container alongside the API:
 
     uv run python -m {{ cookiecutter.package_name }}.infrastructure.jobs.outbox_relay
 
-The default ``_publish_event`` is a stub that logs and marks the row as
-published. Replace it with your broker integration (Kafka, SQS, Pub/Sub,
-RabbitMQ, ...). Requirements for any replacement:
+The relay dispatches each pending row to the handler registry defined in
+:mod:`{{ cookiecutter.package_name }}.infrastructure.jobs.handlers`. The whole
+template runs handlers IN-PROCESS: no external broker is wired by default
+(ADR 0005). When the project goes multi-service, replace the body of
+``handlers.dispatch`` with a real broker publish call — the relay does not
+change.
 
-* **At-least-once**: only mark ``published_at`` after the broker has
-  durably acknowledged the message.
-* **Idempotency on the consumer side**: events carry a unique ``id``; the
-  consumer must deduplicate.
-* **Backoff + alerting**: a row stuck unpublished for more than N minutes
-  is a paging condition.
+Guarantees:
+
+* **At-least-once**: a row is marked ``published_at`` only after every handler
+  returns successfully. A handler exception leaves the row unpublished and
+  the next tick retries it.
+* **Idempotency on the handler side**: handlers MUST tolerate replay (events
+  carry a unique ``id``).
+* **Backoff + alerting**: a row stuck unpublished for more than N minutes is
+  a paging condition — wire an alert on ``MAX(now() - created_at) WHERE
+  published_at IS NULL``.
 """
 
 from __future__ import annotations
@@ -30,6 +37,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from {{ cookiecutter.package_name }}.infrastructure.config.settings import get_settings
 from {{ cookiecutter.package_name }}.infrastructure.container import build_database
+from {{ cookiecutter.package_name }}.infrastructure.jobs import event_handlers  # noqa: F401 — import side-effect: register decorators
+from {{ cookiecutter.package_name }}.infrastructure.jobs.handlers import dispatch
 from {{ cookiecutter.package_name }}.infrastructure.persistence.models.outbox_event import OutboxEventModel
 
 logger = structlog.get_logger(__name__)
@@ -39,13 +48,14 @@ BATCH_SIZE = 100
 
 
 async def _publish_event(event_name: str, payload: dict[str, Any]) -> None:
-    """STUB: replace with the actual broker publish call.
+    """Forward one event to every handler registered for ``event_name``.
 
-    Must raise on failure so the row is NOT marked as published. The
-    relay loop catches and logs the exception, then retries on the next
-    tick.
+    Raises if any handler raises — the caller leaves the row unpublished so
+    the relay retries on the next tick. This function is the swap point for
+    wiring a real broker: replace ``await dispatch(...)`` with
+    ``await broker.publish(...)``.
     """
-    logger.info("outbox.publish_stub", event_name=event_name, payload=payload)
+    await dispatch(event_name, payload)
 
 
 async def _drain_once(session: AsyncSession) -> int:

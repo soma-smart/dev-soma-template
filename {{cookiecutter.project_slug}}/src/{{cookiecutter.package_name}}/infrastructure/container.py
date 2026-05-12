@@ -80,9 +80,10 @@ def build_create_user_use_case(
     users: UserRepository,
     clock: Clock,
     ids: IdGenerator,
+    events: EventBus,
 ) -> CreateUserUseCase:
     """Construct ``CreateUserUseCase`` with cross-cutting tracing + logging."""
-    use_case = CreateUserUseCase(users=users, clock=clock, ids=ids)
+    use_case = CreateUserUseCase(users=users, clock=clock, ids=ids, events=events)
     return _instrumented(use_case, span_name="create_user")
 
 
