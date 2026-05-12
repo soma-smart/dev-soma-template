@@ -51,7 +51,7 @@ The integration-test `pg_session` fixture uses the same mechanism via `join_tran
 
 ## Publishing a domain event (ADR 0005)
 
-Use cases publish through the abstract `EventBus`. The production binding is `SqlOutboxEventBus`: it writes a row to `outbox_events` **inside the request transaction**. The entity write and the outbox row commit or roll back together — consumers see an event iff the entity exists.
+Use cases publish through the `EventBus` protocol. The production binding is `SqlOutboxEventBus`: it writes a row to `outbox_events` **inside the request transaction**. The entity write and the outbox row commit or roll back together — consumers see an event iff the entity exists.
 
 A separate `outbox_relay` worker polls unpublished rows and forwards them to the real broker out of band, providing at-least-once delivery.
 

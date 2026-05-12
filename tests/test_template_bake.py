@@ -57,6 +57,16 @@ def test_given_default_inputs_when_baking_then_creates_expected_layout(cookies) 
     assert (project / "src" / "acme_service" / "__init__.py").is_file()
     assert (project / "src" / "acme_service" / "presentation" / "api" / "app.py").is_file()
     assert (project / ".claude" / "skills").is_dir()
+    assert (project / ".claude" / "skills" / "orchestrating-feature-dev" / "SKILL.md").is_file()
+    agents_dir = project / ".claude" / "agents"
+    assert agents_dir.is_dir()
+    for agent_file in (
+        "soma-unit-test-writer.md",
+        "soma-integration-test-writer.md",
+        "soma-migration-writer.md",
+        "soma-helm-engineer.md",
+    ):
+        assert (agents_dir / agent_file).is_file(), f"missing agent {agent_file}"
     assert (project / "helm" / "acme-service" / "Chart.yaml").is_file()
     assert (project / ".devcontainer" / "devcontainer.json").is_file()
 

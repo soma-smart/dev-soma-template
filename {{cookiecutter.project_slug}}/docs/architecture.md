@@ -85,12 +85,12 @@ src/{{ cookiecutter.package_name }}/
 │   └── exceptions/         # DomainError + subclasses by bounded context
 ├── application/
 │   ├── use_cases/          # 1 file = 1 use case, ...UseCase suffix
-│   ├── repositories/       # abstract (UserRepository, ...)
-│   ├── clock.py            # abstract Clock
-│   ├── id_generator.py     # abstract IdGenerator
-│   ├── random_source.py    # abstract RandomSource
-│   ├── event_bus.py        # abstract EventBus
-│   ├── audit_log.py        # abstract AuditLog
+│   ├── repositories/       # protocols (UserRepository, ...)
+│   ├── clock.py            # Clock protocol
+│   ├── id_generator.py     # IdGenerator protocol
+│   ├── random_source.py    # RandomSource protocol
+│   ├── event_bus.py        # EventBus protocol
+│   ├── audit_log.py        # AuditLog protocol
 │   └── dtos/               # ...Input / ...Output frozen dataclasses
 ├── infrastructure/
 │   ├── persistence/        # SQLAlchemy ORM + concrete repositories

@@ -49,21 +49,21 @@ The walkthrough below follows the pattern with `EmailSender`. Replace `EmailSend
 
 ### 1. Abstract — `application/<role>.py`
 
-Pure Python, no third-party imports.
+Pure Python, no third-party imports. The contract is a `typing.Protocol` — structural typing keeps the application layer dependency-free and avoids ABC ceremony. Concrete bindings may inherit explicitly for documentation; Fakes that quack the right shape are accepted by the type checker either way.
 
 ```python
 # application/email_sender.py
-from abc import ABC, abstractmethod
+from typing import Protocol
 
 from {{ cookiecutter.package_name }}.domain.value_objects.email import Email
 
 
-class EmailSender(ABC):
+class EmailSender(Protocol):
     """Sends transactional and notification emails."""
 
-    @abstractmethod
     async def send(self, *, to: Email, subject: str, body_html: str) -> None:
         """Deliver one email. Must be idempotent — a retried send is safe."""
+        ...
 ```
 
 ### 2. Production binding — `infrastructure/<role>.py`

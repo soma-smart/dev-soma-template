@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Protocol
 
 
-class EventBus(ABC):
-    """Abstract publisher of domain events."""
+class EventBus(Protocol):
+    """Structural contract for a publisher of domain events."""
 
-    @abstractmethod
     async def publish(self, event_name: str, payload: dict[str, Any]) -> None:
         """Publish a domain event to subscribers."""
+        ...

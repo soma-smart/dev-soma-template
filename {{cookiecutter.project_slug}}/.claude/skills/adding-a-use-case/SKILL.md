@@ -24,12 +24,12 @@ For the rules domain code must follow (no third-party, no `datetime.now()`, no `
 
 ## 2. Application abstractions
 
-| Need | Where | Base class | User reference |
+| Need | Where | Base | User reference |
 |---|---|---|---|
-| Persistence for the new entity | `application/repositories/<entity>.py` | `Repository[<Entity>, <Entity>Id]` — only declare entity-specific finders; `add` and `find_by_id` are inherited. | `application/repositories/user.py` |
-| New cross-cutting collaborator (`EmailSender`, `Cache`, …) | `application/<role>.py` | regular `ABC` | none in the User feature |
+| Persistence for the new entity | `application/repositories/<entity>.py` | `Repository[<Entity>, <Entity>Id]` Protocol — extend it as a sub-Protocol and declare only entity-specific finders; `add` and `find_by_id` are inherited. | `application/repositories/user.py` |
+| New cross-cutting collaborator (`EmailSender`, `Cache`, …) | `application/<role>.py` | `typing.Protocol` | none in the User feature |
 
-**Before declaring a new collaborator**, read `adding-a-new-abstraction`. The existing abstractions (`Clock`, `IdGenerator`, `RandomSource`, `EventBus`, `AuditLog`, `Repository`) cover most "I need a new port" thoughts.
+**Before declaring a new collaborator**, read `adding-a-new-abstraction`. The existing protocols (`Clock`, `IdGenerator`, `RandomSource`, `EventBus`, `AuditLog`, `Repository`) cover most "I need a new port" thoughts.
 
 ## 3. The use case
 

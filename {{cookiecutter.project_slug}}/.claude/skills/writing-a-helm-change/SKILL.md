@@ -32,7 +32,7 @@ helm/<project_slug>/
         └── test-connection.yaml  # 'helm test' smoke check on /health/live
 ```
 
-Every template wraps its Go syntax inside `{% raw %}…{% endraw %}` because the file lives in a Cookiecutter template tree — see the existing files for the pattern.
+Every template wraps its Go syntax inside a Jinja `raw` block because the file lives in a Cookiecutter template tree — see the existing files for the pattern.
 
 ## Edit checklist
 

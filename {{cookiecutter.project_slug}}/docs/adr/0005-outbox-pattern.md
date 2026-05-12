@@ -19,7 +19,7 @@ A reliable distributed message bus (Kafka transactional, two-phase commit) sides
 
 We adopt the **transactional outbox** pattern:
 
-* `application/event_bus.py::EventBus` is the abstract publisher used by use cases.
+* `application/event_bus.py::EventBus` is the publisher protocol used by use cases.
 * `infrastructure/outbox.py::SqlOutboxEventBus` is the production binding. It writes a row to ``outbox_events`` using the same `AsyncSession` as the entity write — both rows hit the DB inside the request transaction (ADR 0004).
 * `infrastructure/jobs/outbox_relay.py` is a separate process. It polls `published_at IS NULL`, calls a project-specific `_publish_event(...)` function, and marks the row published only after the broker durably acknowledges.
 

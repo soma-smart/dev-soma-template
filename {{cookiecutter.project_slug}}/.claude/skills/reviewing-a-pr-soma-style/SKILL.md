@@ -28,7 +28,7 @@ when_to_use: User asks for a review; about to comment on a PR; running a final s
 
 * [ ] New entity inherits `Entity[<Name>Id]` (identity equality, no manual `__eq__`).
 * [ ] New value object inherits `ValueObject` + `@dataclass(frozen=True, slots=True)`.
-* [ ] New abstract repository inherits `Repository[<Entity>, <Entity>Id]` (don't redeclare `add` / `find_by_id`).
+* [ ] New repository protocol extends `Repository[<Entity>, <Entity>Id]` and also declares `Protocol` in its bases (don't redeclare `add` / `find_by_id`).
 * [ ] New use case inherits `UseCase[<Action><Noun>Input, <Action><Noun>Output]`.
 * [ ] New `DomainError` subclass declares `code` (SCREAMING_SNAKE) and `default_message` as class attributes (they are `ClassVar` on the base).
 * [ ] New `DomainError` subclass has an entry in `presentation/api/error_handlers.py::ERROR_HTTP_MAPPING` (the unit test will fail otherwise).

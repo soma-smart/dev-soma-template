@@ -40,7 +40,7 @@ If you find yourself reaching for one of these, the actual role is hiding under 
 
 ## Role-stereotype whitelist
 
-When naming an **abstract class**, prefer one of these suffixes — they replace the `Port` suffix:
+When naming a **Protocol** (the application-layer contract), prefer one of these suffixes — they replace the `Port` suffix:
 
 | Stereotype | Use |
 |---|---|
@@ -87,7 +87,7 @@ Prefix by mechanism. Reads as "this is the X-flavoured implementation of role Y"
 * `user`, not `user_object` — `_object` is noise.
 * `user_id` is good; `id` alone is fine inside a class method when the type is clear.
 * Plural for collections: `users: list[User]`, never `user_list`.
-* Use the **abstract** type for parameters, the **concrete** for locals when the difference matters: `def create(self, repo: UserRepository) -> None:` but `repo = SqlAlchemyUserRepository(session)`.
+* Use the **protocol** type for parameters, the **concrete** for locals when the difference matters: `def create(self, repo: UserRepository) -> None:` but `repo = SqlAlchemyUserRepository(session)`.
 
 ## File and folder names
 

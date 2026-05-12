@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-from abc import ABC
 
-
-class Entity[TId](ABC):
+class Entity[TId]:
     """Domain entity with identity-based equality.
 
     Subclasses set ``self.id: TId`` in their ``__init__`` and inherit

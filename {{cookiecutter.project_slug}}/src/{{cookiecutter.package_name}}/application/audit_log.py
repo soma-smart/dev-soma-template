@@ -7,15 +7,13 @@ table. Projects that don't need auditing wire ``NullAuditLog``.
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Protocol
 from uuid import UUID
 
 
-class AuditLog(ABC):
-    """Abstract sink for domain audit events surfaced to end users / ops."""
+class AuditLog(Protocol):
+    """Structural contract for a sink of audit events surfaced to end users / ops."""
 
-    @abstractmethod
     async def record(
         self,
         event_name: str,
@@ -23,3 +21,4 @@ class AuditLog(ABC):
         payload: dict[str, Any],
     ) -> None:
         """Persist an audit entry."""
+        ...
