@@ -29,6 +29,7 @@ The reference feature shipped in `src/` and `tests/` is the `POST /v1/users` flo
 | Editing `helm/`                                  | `writing-a-helm-change`        |
 | "Protect a route", "JWT", role check, "401/403"  | `adding-auth`                  |
 | "Idempotency-Key", "retry safe", 409/422 idempotency | `idempotency-and-retries`  |
+| Alert firing, on-call question, "what do I do if…" | `incident-response`        |
 | "Review this PR"                                 | `reviewing-a-pr-soma-style`    |
 | Feature spans more than one layer; orchestrating sub-agents | `orchestrating-feature-dev` |
 
@@ -60,4 +61,5 @@ Dispatch through the `orchestrating-feature-dev` skill or invoke an agent direct
 
 - Architecture overview: [`docs/architecture.md`](docs/architecture.md)
 - ADRs: [`docs/adr/`](docs/adr/)
+- Operator runbooks: [`docs/runbooks/`](docs/runbooks/) — backups, restore, disaster-recovery playbooks
 - Reference feature file map: see the `onboarding-soma` skill

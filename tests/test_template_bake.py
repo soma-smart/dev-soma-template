@@ -56,7 +56,11 @@ def test_given_default_inputs_when_baking_then_creates_expected_layout(cookies) 
         assert (project / name).exists(), f"missing top-level {name}"
     assert (project / "src" / "acme_service" / "__init__.py").is_file()
     assert (project / "src" / "acme_service" / "presentation" / "api" / "app.py").is_file()
+    assert (project / "docs" / "runbooks" / "backups-and-restore.md").is_file()
+    assert (project / "docs" / "runbooks" / "disaster-recovery.md").is_file()
+    assert (project / "docs" / "runbooks" / "verification-log.md").is_file()
     assert (project / ".claude" / "skills").is_dir()
+    assert (project / ".claude" / "skills" / "incident-response" / "SKILL.md").is_file()
     assert (project / ".claude" / "skills" / "orchestrating-feature-dev" / "SKILL.md").is_file()
     agents_dir = project / ".claude" / "agents"
     assert agents_dir.is_dir()

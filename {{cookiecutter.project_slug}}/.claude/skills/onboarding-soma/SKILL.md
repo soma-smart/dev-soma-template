@@ -73,4 +73,5 @@ just mutate      # mutation testing on domain + application
 * **`CLAUDE.md`** at the repo root — the routing table from prompts to skills (auto-loaded every session). The most important file.
 * **`docs/architecture.md`** — Mermaid diagrams of the layers + a request sequence diagram.
 * **`docs/adr/`** — five ADRs documenting the structural choices (clean architecture, TDD + mutation, fakes-only, transaction boundary, outbox).
+* **`docs/runbooks/`** — operator playbooks: `backups-and-restore.md`, `disaster-recovery.md`, `verification-log.md`. Open these before debugging an incident; the `incident-response` skill routes alerts and symptoms to the matching section.
 * **`.claude/skills/`** — the skills `CLAUDE.md` points at; pick the one matching your task.
