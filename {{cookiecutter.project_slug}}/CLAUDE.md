@@ -30,6 +30,7 @@ The reference feature shipped in `src/` and `tests/` is the `POST /v1/users` flo
 | "Protect a route", "JWT", role check, "401/403"  | `adding-auth`                  |
 | "Idempotency-Key", "retry safe", 409/422 idempotency | `idempotency-and-retries`  |
 | Alert firing, on-call question, "what do I do if…" | `incident-response`        |
+| "Event-source X", "should we ES this entity?", audit / time-travel | `event-sourcing-pattern` |
 | "Review this PR"                                 | `reviewing-a-pr-soma-style`    |
 | Feature spans more than one layer; orchestrating sub-agents | `orchestrating-feature-dev` |
 
@@ -48,12 +49,13 @@ The reference feature shipped in `src/` and `tests/` is the `POST /v1/users` flo
 
 ## Custom sub-agents
 
-This project ships four custom sub-agents under `.claude/agents/` to keep token usage scoped. Each one loads only the skill(s) it needs and runs in a fresh context.
+This project ships five custom sub-agents under `.claude/agents/` to keep token usage scoped. Each one loads only the skill(s) it needs and runs in a fresh context.
 
 - `soma-unit-test-writer` — TDD unit tests with Fakes + mutmut
 - `soma-integration-test-writer` — integration tests against testcontainers Postgres
 - `soma-migration-writer` — Alembic autogen + cure + upgrade/downgrade roundtrip
 - `soma-helm-engineer` — chart edits + `helm lint` / `kubeconform` / `polaris`
+- `soma-event-sourcing-bootstrapper` — scaffolds the 4 files for event-sourcing a named entity (lite ES variant)
 
 Dispatch through the `orchestrating-feature-dev` skill or invoke an agent directly with the `Task` tool when the work is narrowly scoped. PR review uses Anthropic's built-in `pr-review-toolkit:*` agents plus the `reviewing-a-pr-soma-style` skill — no custom reviewer ships here.
 
