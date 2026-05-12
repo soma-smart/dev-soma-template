@@ -15,6 +15,7 @@ from datetime import UTC, datetime
 import pytest
 
 from {{ cookiecutter.package_name }}.application.use_cases.create_user import CreateUserUseCase
+from tests.fakes.auth import FakeTokenVerifier
 from tests.fakes.clock import FrozenClock
 from tests.fakes.event_bus import InMemoryEventBus
 from tests.fakes.id_generator import SequentialIdGenerator
@@ -50,6 +51,12 @@ def user_repository() -> InMemoryUserRepository:
 @pytest.fixture
 def event_bus() -> InMemoryEventBus:
     return InMemoryEventBus()
+
+
+# ─── Token verifier fake (also acts as Spy via .calls) ───────────────
+@pytest.fixture
+def token_verifier() -> FakeTokenVerifier:
+    return FakeTokenVerifier()
 
 
 # ─── Use case composed for unit + e2e tests ──────────────────────────

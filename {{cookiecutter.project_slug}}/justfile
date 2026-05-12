@@ -25,6 +25,13 @@ hooks:
 dev:
     uv run uvicorn {{ cookiecutter.package_name }}.presentation.api.app:app --reload
 
+# Mint a local HS256 JWT signed with AUTH_JWT_SECRET — for calling protected
+# endpoints from curl / Postman during dev.
+# Usage:  just dev-token alice
+#         just dev-token alice admin,user
+dev-token SUBJECT ROLES="":
+    uv run python -m {{ cookiecutter.package_name }}.infrastructure.auth.dev_token "{{ '{{' }}SUBJECT{{ '}}' }}" "{{ '{{' }}ROLES{{ '}}' }}"
+
 # ─── Test ───────────────────────────────────────────────────────────
 # Fast feedback loop: unit tests only, stop on first failure.
 test:

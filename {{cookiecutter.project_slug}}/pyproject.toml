@@ -36,6 +36,7 @@ dependencies = [
 {%- endif %}
     "httpx>=0.28",
     "prometheus-fastapi-instrumentator>=7.0",
+    "pyjwt[crypto]>=2.10",
 ]
 
 [dependency-groups]

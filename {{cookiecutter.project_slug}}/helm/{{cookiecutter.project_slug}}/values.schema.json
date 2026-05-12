@@ -31,13 +31,19 @@
         "serviceName": { "type": "string" },
         "otelExporterOtlpEndpoint": { "type": "string" },
         "otelTracesSamplerArg": { "type": "string" },
-        "corsAllowedOrigins": { "type": "string" }
+        "corsAllowedOrigins": { "type": "string" },
+        "authJwtAlgorithm": { "enum": ["HS256", "RS256"] },
+        "authJwtJwksUrl": { "type": "string" },
+        "authJwtAudience": { "type": "string" },
+        "authJwtIssuer": { "type": "string" },
+        "authJwtRolesClaim": { "type": "string" }
       }
     },
     "secrets": {
       "type": "object",
       "properties": {
-        "dbUrl": { "type": "string" }
+        "dbUrl": { "type": "string" },
+        "authJwtSecret": { "type": "string" }
       }
     },
     "ingress": { "type": "object" },

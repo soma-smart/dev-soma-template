@@ -37,6 +37,7 @@ from {{ cookiecutter.package_name }}.presentation.api.middleware import (
     RequestTimeoutMiddleware,
     SecurityHeadersMiddleware,
 )
+from {{ cookiecutter.package_name }}.presentation.api.v1 import auth as auth_v1
 from {{ cookiecutter.package_name }}.presentation.api.v1 import users as users_v1
 
 logger = structlog.get_logger(__name__)
@@ -110,6 +111,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     ).instrument(app).expose(app, include_in_schema=False, endpoint="/metrics")
 
     app.include_router(health_router)
+    app.include_router(auth_v1.router)
     app.include_router(users_v1.router)
     return app
 

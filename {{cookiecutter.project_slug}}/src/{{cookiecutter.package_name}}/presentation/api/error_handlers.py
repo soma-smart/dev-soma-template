@@ -15,6 +15,11 @@ from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from opentelemetry import trace
 
+from {{ cookiecutter.package_name }}.domain.exceptions.auth import (
+    InsufficientPermissionsError,
+    InvalidTokenError,
+    MissingTokenError,
+)
 from {{ cookiecutter.package_name }}.domain.exceptions.base import DomainError
 from {{ cookiecutter.package_name }}.domain.exceptions.user import UserAlreadyExistsError, UserNotFoundError
 from {{ cookiecutter.package_name }}.domain.value_objects.email import InvalidEmailError
@@ -25,6 +30,9 @@ ERROR_HTTP_MAPPING: dict[type[DomainError], int] = {
     InvalidEmailError: 422,
     UserAlreadyExistsError: status.HTTP_409_CONFLICT,
     UserNotFoundError: status.HTTP_404_NOT_FOUND,
+    MissingTokenError: status.HTTP_401_UNAUTHORIZED,
+    InvalidTokenError: status.HTTP_401_UNAUTHORIZED,
+    InsufficientPermissionsError: status.HTTP_403_FORBIDDEN,
     # Concrete subclasses are added by their owning bounded context.
     # The mapping is checked by tests/unit/presentation/test_error_mapping.py.
 }

@@ -96,11 +96,19 @@ config:
   otelExporterOtlpEndpoint: ""
   otelTracesSamplerArg: "0.1"
   corsAllowedOrigins: ""
+  # Auth — bearer-JWT verification. See the ``adding-auth`` skill for the
+  # swap path to a real IdP.
+  authJwtAlgorithm: "HS256"        # HS256 | RS256
+  authJwtJwksUrl: ""               # required when authJwtAlgorithm=RS256
+  authJwtAudience: ""              # leave empty to disable the aud check
+  authJwtIssuer: ""                # leave empty to disable the iss check
+  authJwtRolesClaim: "roles"       # dotted path inside the JWT claims
 
 # Secrets — by default empty; populate via a SealedSecret, ExternalSecret or
 # raw values overlay outside source control.
 secrets:
   dbUrl: ""
+  authJwtSecret: ""                # required when authJwtAlgorithm=HS256
 
 # Migrations job — runs `alembic upgrade head` as a Helm pre-install/pre-upgrade
 # hook. Disable for projects that don't manage their schema with Alembic.

@@ -18,8 +18,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from {{ cookiecutter.package_name }}.application.use_cases.create_user import CreateUserUseCase
 from {{ cookiecutter.package_name }}.presentation.api.app import create_app
+from {{ cookiecutter.package_name }}.presentation.api.dependencies.auth import get_token_verifier
 from {{ cookiecutter.package_name }}.presentation.api.dependencies.common import get_session
 from {{ cookiecutter.package_name }}.presentation.api.dependencies.users import get_create_user_use_case
+from tests.fakes.auth import FakeTokenVerifier
 
 
 class StubAsyncSession:
@@ -43,10 +45,15 @@ def stub_session() -> StubAsyncSession:
 
 
 @pytest.fixture
-def app(create_user_use_case: CreateUserUseCase, stub_session: StubAsyncSession) -> FastAPI:
-    """FastAPI app with the User use case + DB session overridden by Fakes."""
+def app(
+    create_user_use_case: CreateUserUseCase,
+    stub_session: StubAsyncSession,
+    token_verifier: FakeTokenVerifier,
+) -> FastAPI:
+    """FastAPI app with the User use case, DB session, and token verifier overridden by Fakes."""
     app = create_app()
     app.dependency_overrides[get_create_user_use_case] = lambda: create_user_use_case
+    app.dependency_overrides[get_token_verifier] = lambda: token_verifier
 
     async def _session_override() -> AsyncIterator[AsyncSession]:
         yield stub_session  # type: ignore[misc]

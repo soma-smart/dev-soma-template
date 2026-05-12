@@ -18,6 +18,7 @@ from typing import Any
 import structlog
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from {{ cookiecutter.package_name }}.application.auth.token_verifier import TokenVerifier
 from {{ cookiecutter.package_name }}.application.clock import Clock
 from {{ cookiecutter.package_name }}.application.event_bus import EventBus
 from {{ cookiecutter.package_name }}.application.id_generator import IdGenerator
@@ -26,6 +27,7 @@ from {{ cookiecutter.package_name }}.application.repositories.user import UserRe
 from {{ cookiecutter.package_name }}.application.use_cases.base import UseCase
 from {{ cookiecutter.package_name }}.application.use_cases.create_user import CreateUserUseCase
 from {{ cookiecutter.package_name }}.domain.exceptions.base import DomainError
+from {{ cookiecutter.package_name }}.infrastructure.auth.jwt_verifier import JwtTokenVerifier
 from {{ cookiecutter.package_name }}.infrastructure.clock import SystemClock
 from {{ cookiecutter.package_name }}.infrastructure.config.settings import Settings
 from {{ cookiecutter.package_name }}.infrastructure.id_generator import Uuid4IdGenerator
@@ -63,6 +65,23 @@ def build_database(settings: Settings) -> tuple[AsyncEngine, async_sessionmaker[
 def build_user_repository(session: AsyncSession) -> UserRepository:
     """Build the SQLAlchemy-backed ``UserRepository`` for a given session."""
     return SqlAlchemyUserRepository(session)
+
+
+def build_token_verifier(settings: Settings) -> TokenVerifier:
+    """Build the production ``TokenVerifier``.
+
+    Wired to :class:`JwtTokenVerifier`; swap this body if the project moves
+    to a different scheme (mTLS, opaque tokens, …).
+    """
+    secret = settings.auth_jwt_secret.get_secret_value() if settings.auth_jwt_secret else None
+    return JwtTokenVerifier(
+        algorithm=settings.auth_jwt_algorithm,
+        secret=secret,
+        jwks_url=settings.auth_jwt_jwks_url,
+        audience=settings.auth_jwt_audience,
+        issuer=settings.auth_jwt_issuer,
+        roles_claim=settings.auth_jwt_roles_claim,
+    )
 
 
 def build_event_bus(session: AsyncSession) -> EventBus:

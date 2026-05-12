@@ -45,6 +45,16 @@ class Settings(BaseSettings):
     request_max_body_bytes: int = 1_048_576  # 1 MiB
     request_timeout_seconds: float = 30.0
 
+    # ── Auth ─────────────────────────────────────────────────────────
+    # Bearer-JWT verification. See ``infrastructure/auth/jwt_verifier.py``
+    # and the ``adding-auth`` skill for the swap path to a real IdP.
+    auth_jwt_algorithm: Literal["HS256", "RS256"] = "HS256"
+    auth_jwt_secret: SecretStr | None = None
+    auth_jwt_jwks_url: str | None = None
+    auth_jwt_audience: str | None = None
+    auth_jwt_issuer: str | None = None
+    auth_jwt_roles_claim: str = "roles"
+
     # ── Security ─────────────────────────────────────────────────────
     # ``NoDecode`` opts out of Pydantic's default JSON decoding so we can
     # accept the much friendlier comma-separated format in .env files.

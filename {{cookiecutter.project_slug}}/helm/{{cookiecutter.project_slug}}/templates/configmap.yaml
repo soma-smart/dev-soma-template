@@ -12,4 +12,9 @@ data:
   OTEL_EXPORTER_OTLP_ENDPOINT: {{ .Values.config.otelExporterOtlpEndpoint | quote }}
   OTEL_TRACES_SAMPLER_ARG: {{ .Values.config.otelTracesSamplerArg | quote }}
   CORS_ALLOWED_ORIGINS: {{ .Values.config.corsAllowedOrigins | quote }}
+  AUTH_JWT_ALGORITHM: {{ .Values.config.authJwtAlgorithm | quote }}
+  AUTH_JWT_JWKS_URL: {{ .Values.config.authJwtJwksUrl | quote }}
+  AUTH_JWT_AUDIENCE: {{ .Values.config.authJwtAudience | quote }}
+  AUTH_JWT_ISSUER: {{ .Values.config.authJwtIssuer | quote }}
+  AUTH_JWT_ROLES_CLAIM: {{ .Values.config.authJwtRolesClaim | quote }}
 {% endraw %}
