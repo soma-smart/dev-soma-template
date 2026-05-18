@@ -48,8 +48,15 @@ Le but est de simuler **un dev qui découvre le template**, pas un dev qui se so
 3. **Si je veux faire un choix non documenté dans la skill, c'est un trou à logger.** Le walkthrough doit révéler ces moments. Quand je vois "la skill ne couvre pas ce cas" ou "la skill est ambiguë", je le note dans le rapport **et** je documente quelle décision arbitraire j'ai prise faute de mieux.
 4. **Pas de pre-fix.** Si je sais qu'un fichier a un bug parce qu'on l'a fixé pendant la session, je ne le pre-fix pas — je laisse le walkthrough buter dessus comme un dev neuf le ferait, et je log l'incident.
 5. **Pas de raccourci sur les commandes.** Si la skill dit `just test` et que je sais qu'on a aussi `just test-all`, j'utilise `just test` (ce que la skill prescrit). Toute deviation est un signal que la skill est sous-spécifiée.
+6. **Briefs aux builders : strictement le template documenté.** La skill `orchestrating-feature-dev` ship 3 templates de brief (un par builder). À chaque dispatch je les utilise comme grille — chaque slot rempli, chaque skill citée. Si je découvre qu'un slot manque (« où ai-je mis l'event payload ? »), c'est un trou dans le template à logger.
 
 Ces règles ne rendent pas le test parfait — je reste le même Claude tout du long — mais elles maximisent la friction observable. Le rapport final notera explicitement les moments où j'ai craqué.
+
+### 2.2 Rappel — la philosophie "main agent = architecte" en 3 lignes
+
+- **Main agent design** : Protocol shape + DTO + event payload + exceptions + status codes — en conversation, pas en fichiers.
+- **Main agent ne touche PAS** au code de prod (use case body, repo impl, route handler). Seul cross-cutting (`adding-a-new-abstraction` pour un nouveau Protocol transverse, `error_handlers.py` mapping si le route-builder rate le set).
+- **Builders exécutent** sur la base du brief self-contained. Refus du builder = brief incomplet = bug à logger.
 
 ## 3. Domaine fonctionnel à construire — TODO API
 
@@ -126,13 +133,25 @@ Collaborator nouveau (pas un repo) :
 
 ## 5. Matrice de couverture sub-agents → itération
 
-| Agent | Itération | Tâche |
+Le template ship 8 agents (3 feature-level builders + 5 tech-narrow utilities). Le walkthrough exerce les 6 qui sont pertinents pour ce périmètre fonctionnel — les 2 test-writers démotés (`soma-unit-test-writer`, `soma-integration-test-writer`) ne sont pas exercés ici car leur cas d'usage (combler une coverage gap sur du code existant) ne se présente pas dans une construction from-scratch. Si un cas se présente en cours de route, on le notera.
+
+### Feature-level builders (chacun exercé plusieurs fois)
+
+| Agent | Phases | Tâches |
 |---|---|---|
-| `soma-unit-test-writer` | 2, 4 | Tests unit pour 2 use cases au moins |
-| `soma-integration-test-writer` | 3 | Tests d'intégration pour `SqlAlchemyTodoListRepository` |
-| `soma-migration-writer` | 3 | Migrations `0005_init_todos.py` |
-| `soma-helm-engineer` | 5 | Ajouter `MAX_ITEMS_PER_LIST` au chart |
-| `soma-event-sourcing-bootstrapper` | 6 | Scaffold ES pour `TodoList` |
+| `soma-use-case-builder` | 2, 4, 5, 7 | CreateTodoList ; AddTodoItem / Complete / Uncomplete / ChangePriority / Delete / ListItems ; ShareTodoList ; MoveTodoItem (complexe multi-aggregate) — **9 dispatches** au total |
+| `soma-persistence-builder` | 3, 4, 5 | `SqlAlchemyTodoListRepository` + migration ; `SqlAlchemyTodoItemRepository` + migration ; `SqlAlchemyTodoListShareRepository` + migration — **3 dispatches** |
+| `soma-route-builder` | 2, 4, 5, 7 | Un dispatch par endpoint exposé : CreateTodoList, 6 TodoItem routes, ShareTodoList, MoveTodoItem — **9 dispatches** |
+
+### Tech-narrow utilities
+
+| Agent | Phases | Tâche |
+|---|---|---|
+| `soma-helm-engineer` | 8 | Ajouter `MAX_ITEMS_PER_LIST` au chart |
+| `soma-event-sourcing-bootstrapper` | 9 | Scaffold ES pour `TodoItem` |
+| `soma-migration-writer` | — | Pas exercé : toutes les migrations de ce walkthrough sont attelées à des nouveaux repos donc absorbées par `soma-persistence-builder`. Si une migration standalone se présente (alter column sur table existante, ajout d'index), on le notera. |
+| `soma-unit-test-writer` | — | Pas exercé from-scratch (couvert par les builders). Si une coverage gap apparaît, on dispatche. |
+| `soma-integration-test-writer` | — | Idem. |
 
 ## 6. Itérations
 
@@ -178,69 +197,123 @@ Format de chaque étape : `**X.Y — <titre> (≈ Z min)**` + objectif + skills 
 - *Actions* : 7 sous-classes de `DomainError` avec `code` + `default_message` ClassVars + entrées dans `ERROR_HTTP_MAPPING`.
 - *Check* : `pytest -m unit -k test_error_mapping` vert (le test exhaustif sur les subclasses détecte les manques).
 
-**1.4 — Repository Protocols (≈ 15 min)**
-- *Objectif* : 3 Protocols sous `application/repositories/` : `TodoListRepository`, `TodoItemRepository`, `TodoListShareRepository`.
-- *Skills* : `clean-architecture-layers`, `adding-a-new-abstraction`.
-- *Actions* : chaque Protocol extend `Repository[TEntity, TId]` et ajoute les finders métier (`find_by_owner`, `find_by_list`, `count_active_by_list`, `find_by_list_and_user`).
-- *Check* : ruff + `ty` passent sur `application/repositories/` ; aucun import infrastructure depuis ces fichiers.
+**1.4 — Repository Protocol skeletons (≈ 10 min)**
+- *Objectif* : 3 Protocol skeletons sous `application/repositories/` : `TodoListRepository`, `TodoItemRepository`, `TodoListShareRepository`. Aucune méthode business à ce stade — le main agent crée juste le `class …Repository(Repository[Entity, EntityId], Protocol): pass`. Les méthodes business-named (`find_active_by_owner_and_name`, `count_active_by_list`, etc.) seront ajoutées par `soma-use-case-builder` au moment où chaque use case en a besoin (cf. `orchestrating-feature-dev` et `naming-conventions` § Repository method naming).
+- *Skills* : `clean-architecture-layers`, `naming-conventions`.
+- *Actions* : créer chaque sous-Protocol avec un docstring qui décrit le rôle de l'entity, sans méthode (seulement `add` + `find_by_id` hérités).
+- *Check* : ruff + `ty` passent ; aucun import infrastructure ; les 3 Fake repos vides existent sous `tests/fakes/repositories/`.
 
 ---
 
-### Phase 2 — Premier use case end-to-end
+### Phase 2 — Premier use case end-to-end (via builders)
 
-**2.1 — CreateTodoList — use case + tests unit (≈ 25 min)**
-- *Objectif* : DTO + use case + Fake repo + tests unitaires via `soma-unit-test-writer`.
-- *Skills* : `adding-a-use-case`, `tdd-workflow`, `writing-tests`, `transactions-and-events` (pour la publication d'event).
+**2.1 — Design + dispatch `soma-use-case-builder` pour CreateTodoList (≈ 30 min)**
+- *Objectif* : faire produire au builder le slice application : DTO + Fake repo + Protocol extension + use case + tests unit avec mutmut ≥ 90%.
+- *Skills lues par le main agent* : `orchestrating-feature-dev`, `adding-a-use-case`, `naming-conventions` (§ Repository method naming), `transactions-and-events`.
+- *Design phase (main agent)* : décider Protocol methods + DTO + event + exceptions, puis rédiger le brief.
 - *Actions* :
-  - DTO `CreateTodoListInput`, `CreateTodoListOutput`
-  - Fake `InMemoryTodoListRepository`
-  - Dispatch `soma-unit-test-writer` avec brief self-contained : « Write unit tests for `CreateTodoListUseCase` covering: happy path returns output with id+name+created_at; emits `todo_list.created` event with name and owner_id; duplicate name for same owner raises `TodoListAlreadyExistsError`. Use the existing user_repository / event_bus fixtures pattern. »
-  - Use case `CreateTodoListUseCase` (publie `todo_list.created` via EventBus)
-- *Check* : `pytest -m unit -k create_todo_list` vert ; `just mutate` sur `application/use_cases/create_todo_list.py` ≥ 90%.
+  - Le main agent design la feature :
+    - DTO : `CreateTodoListInput(name: str, owner_id: UUID)` → `CreateTodoListOutput(id, name, owner_id, created_at)`
+    - Méthode Protocol à ajouter : `find_active_by_owner_and_name(owner_id, name) -> TodoList | None` (filter contract : ignore soft-deleted, used for unique-name-per-owner check)
+    - Event : `todo_list.created` avec payload `{id, name, owner_id, created_at_iso}`
+    - Exception : `TodoListAlreadyExistsError` (code `TODO_LIST_ALREADY_EXISTS`)
+  - Dispatch `soma-use-case-builder` avec un brief self-contained suivant le template de `orchestrating-feature-dev` § "Brief pour soma-use-case-builder".
+  - Vérifier le rapport de l'agent : files créés/modifiés ; mutation kill-rate ≥ 90% ; ajout de `find_active_by_owner_and_name` au Protocol ET au Fake.
+- *Check* :
+  - `pytest -m unit -k create_todo_list` vert
+  - `scripts/checks/no_third_party_in_domain.py` + `test_naming.py` clean
+  - Le Protocol `TodoListRepository` contient maintenant `find_active_by_owner_and_name` avec un docstring qui explique le filter
+  - L'event `todo_list.created` est bien ajouté à `ERROR_HTTP_MAPPING` ? Non — c'est une exception, pas un event. Vérifier que `TodoListAlreadyExistsError` est mappé (409).
 
-**2.2 — CreateTodoList — route + e2e (≈ 20 min)**
-- *Objectif* : route `POST /v1/todo-lists` protégée + container factory + tests e2e.
-- *Skills* : `adding-auth`, `using-the-di-container`, `writing-tests` (e2e).
-- *Actions* : `presentation/api/v1/todo_lists.py` avec `Depends(get_current_user)`, schema Pydantic, container factory `build_create_todo_list_use_case`, dependency wiring.
-- *Check* : 3 e2e tests verts (201 avec token, 401 sans token, payload invalide → 422).
+**2.2 — Dispatch `soma-route-builder` pour POST /v1/todo-lists (≈ 25 min)**
+- *Objectif* : faire produire au builder le slice presentation : schema + route + container factory + dependency wrapper + e2e.
+- *Skills lues par le main agent* : `using-the-di-container`, `adding-auth`, `idempotency-and-retries`.
+- *Design phase (main agent)* : trancher HTTP semantics + auth + status codes + idempotency.
+- *Actions* :
+  - Le main agent design :
+    - Method + path : `POST /v1/todo-lists`
+    - Auth : authenticated
+    - Idempotency : oui (POST)
+    - Status codes : 201 happy, 401 sans token, 409 `TodoListAlreadyExistsError`, 422 payload invalide
+  - Dispatch `soma-route-builder` avec un brief self-contained suivant le template de `orchestrating-feature-dev` § "Brief pour soma-route-builder".
+  - Vérifier le rapport : files créés ; mapping ajouté à `ERROR_HTTP_MAPPING` ; e2e tests verts.
+- *Check* :
+  - `pytest -m e2e -k todo_lists` vert (≥ 2 tests : happy 201 + critical 401)
+  - `curl -H "Authorization: Bearer $(just dev-token alice)" -X POST http://localhost:8000/v1/todo-lists -d '{"name":"shopping"}' -H 'Content-Type: application/json'` renvoie 201 avec le payload attendu
+  - **Question méta** : le brief était-il complet ? Y a-t-il eu un aller-retour avec le builder (refus, demande de précision) ? À noter dans le rapport.
 
 ---
 
-### Phase 3 — Persistence
+### Phase 3 — Persistence TodoList (via `soma-persistence-builder`)
 
-**3.1 — Migration via agent (≈ 15 min)**
-- *Objectif* : table `todo_lists` créée avec roundtrip clean.
-- *Skills* : `database-and-migrations`.
-- *Actions* : dispatch `soma-migration-writer` avec brief self-contained : « Create migration for table `todo_lists` (id UUID PK, owner_id UUID NOT NULL indexed, name VARCHAR(255) NOT NULL, created_at TZ-aware NOT NULL, deleted_at TZ-aware NULL). Test the upgrade/downgrade roundtrip. »
-- *Check* : `just migrate → migrate-down → migrate` propre ; pas de drift detected.
-
-**3.2 — SqlAlchemyTodoListRepository + integration tests (≈ 20 min)**
-- *Objectif* : impl SQLAlchemy + tests d'intégration testcontainers via `soma-integration-test-writer`.
-- *Skills* : `database-and-migrations`, `writing-tests`.
-- *Actions* : model SQLAlchemy + repository impl + wire dans le container ; dispatch agent avec brief self-contained sur les 4 invariants à tester (round-trip, IntegrityError → DomainError, missing → None, find_by_owner scope).
-- *Check* : integration tests verts ; le e2e de la phase 2 continue de passer avec le repo SQL en place.
+**3.1 — Dispatch `soma-persistence-builder` pour TodoListRepository (≈ 30 min)**
+- *Objectif* : faire produire au builder le slice infrastructure complet — SQLAlchemy model + Alembic migration (avec roundtrip vérifié) + impl SQL du Protocol + integration tests.
+- *Skills lues par le main agent* : `orchestrating-feature-dev`, `database-and-migrations`.
+- *Design phase (main agent)* : trancher le schéma exact, les contraintes uniques, le soft-delete, et le mapping IntegrityError → DomainError.
+- *Actions* :
+  - Le main agent design :
+    - Schema `todo_lists` : `id UUID PK, owner_id UUID NOT NULL indexed, name VARCHAR(255) NOT NULL, created_at TIMESTAMPTZ NOT NULL, deleted_at TIMESTAMPTZ NULL`
+    - Contrainte UNIQUE partielle : `(owner_id, name) WHERE deleted_at IS NULL`
+    - Soft-delete via `deleted_at` (convention SOMA)
+    - IntegrityError sur duplicate → `TodoListAlreadyExistsError`
+  - Dispatch `soma-persistence-builder` avec un brief self-contained suivant le template de `orchestrating-feature-dev` § "Brief pour soma-persistence-builder".
+  - Vérifier le rapport : migration cure + roundtrip clean ; toutes les méthodes du Protocol implémentées ; tests d'intégration couvrant `add` happy + `add` duplicate → `TodoListAlreadyExistsError` + `find_by_id` missing → None + `find_active_by_owner_and_name` ignore les soft-deleted.
+- *Check* :
+  - `just migrate → migrate-down → migrate` clean
+  - `uv run alembic revision --autogenerate -m drift` produit une migration vide
+  - `pytest -m integration -k todo_list_repository` vert
+  - Le e2e de la phase 2 (CreateTodoList POST) continue de passer **avec le repo SQL en place** (le container doit être swappé du Fake vers `SqlAlchemyTodoListRepository`)
+  - **Question méta** : le builder a-t-il bien lu les docstrings du Protocol pour deriver les WHERE clauses ? Le `find_active_by_owner_and_name` exclut-il bien les soft-deleted ? À vérifier dans le code généré.
 
 ---
 
-### Phase 4 — TodoItem CRUD (state machine côté items)
+### Phase 4 — TodoItem CRUD (6 use cases via builders)
 
-**4.1 — AddTodoItem + state machine (≈ 25 min)**
-- *Objectif* : `AddTodoItem`, `CompleteTodoItem`, `UncompleteTodoItem` use cases + leurs tests.
-- *Skills* : `adding-a-use-case`, `tdd-workflow`, `writing-tests`.
-- *Actions* : 3 use cases avec leurs DTOs + Fakes + tests unit + routes ; events `todo_item.added`, `todo_item.completed`, `todo_item.uncompleted` émis.
-- *Check* : unit + e2e verts ; mutation 90% ; state machine test : complete 2× → `TodoItemAlreadyCompletedError`.
+Chaque step suit le pattern Phase 2 : main agent design → dispatch `soma-use-case-builder` → dispatch `soma-route-builder`. Le brief reprend le template documenté dans `orchestrating-feature-dev`. Vue récap des 6 use cases :
 
-**4.2 — ChangeItemPriority + DeleteTodoItem + ListItems (≈ 25 min)**
-- *Objectif* : 3 use cases peripheral + leurs tests.
+| Use case | Method + path | Idempotency | Event émis | Exceptions raise-able |
+|---|---|---|---|---|
+| AddTodoItem | POST /v1/todo-lists/{id}/items | yes | `todo_item.added` | `TodoListNotFoundError`, `MaxItemsExceededError` |
+| CompleteTodoItem | PATCH /v1/todo-items/{id}/complete | no | `todo_item.completed` | `TodoItemNotFoundError`, `TodoItemAlreadyCompletedError` |
+| UncompleteTodoItem | PATCH /v1/todo-items/{id}/uncomplete | no | `todo_item.uncompleted` | `TodoItemNotFoundError`, `TodoItemNotCompletedError` |
+| ChangeItemPriority | PATCH /v1/todo-items/{id}/priority | no | — | `TodoItemNotFoundError` |
+| DeleteTodoItem | DELETE /v1/todo-items/{id} | no | `todo_item.deleted` | `TodoItemNotFoundError` |
+| ListItems | GET /v1/todo-lists/{id}/items | — (GET) | — | `TodoListNotFoundError` |
+
+**4.1 — AddTodoItem + state machine Complete/Uncomplete (≈ 75 min)**
+- *Objectif* : 3 use cases + 3 routes pour la state machine TodoItem (Add → Complete ↔ Uncomplete).
+- *Skills lues par le main agent* : `adding-a-use-case`, `naming-conventions` (méthodes Protocol business-named pour TodoItem), `transactions-and-events`.
+- *Actions* (3 fois le pattern) :
+  - Pour chacun des 3 use cases :
+    - Le main agent design la méthode Protocol nécessaire sur `TodoItemRepository` (ex: `find_open_by_id(id) -> TodoItem | None` qui retourne `None` si l'item est completed, pour `UncompleteTodoItem` la symétrie `find_completed_by_id`)
+    - Dispatch `soma-use-case-builder` avec le brief
+    - Dispatch `soma-route-builder` avec le brief HTTP
+- *Check* :
+  - `pytest -m unit -k "add_todo_item or complete or uncomplete"` vert
+  - `pytest -m e2e -k todo_items` vert
+  - Mutmut ≥ 90% sur les 3 use cases
+  - State machine : `CompleteTodoItem` 2× → `TodoItemAlreadyCompletedError` (409)
+  - **Question méta** : les 3 builders ont-ils proposé des noms Protocol cohérents (`find_open_by_id` vs `find_active_by_id` vs `find_by_id` + check inline) ? Si incohérent, le brief doit être plus directif.
+
+**4.2 — ChangeItemPriority + DeleteTodoItem + ListItems (≈ 60 min)**
+- *Objectif* : 3 use cases peripheral.
 - *Skills* : `adding-a-use-case`.
-- *Actions* : même pattern. `DeleteTodoItem` émet `todo_item.deleted` ; `ListItems` est un GET (pas d'event, pas idempotent).
-- *Check* : unit + e2e verts ; mutation 90%.
+- *Actions* : même pattern. Note pour `ListItems` : c'est un GET, donc le brief route-builder est plus court (pas d'idempotency, pas de body, response = list[TodoItemReadSchema]).
+- *Check* : unit + e2e verts ; mutmut 90% sur ChangeItemPriority et DeleteTodoItem (ListItems n'a pas de logique métier, mutmut moins pertinent).
 
-**4.3 — TodoItem persistence (≈ 20 min)**
-- *Objectif* : migration + impl SQL + integration tests pour `TodoItem`.
-- *Skills* : `database-and-migrations`, `writing-tests`.
-- *Actions* : dispatch `soma-migration-writer` (table todo_items), puis impl + dispatch `soma-integration-test-writer`.
-- *Check* : integration tests verts ; les 6 e2e du CRUD TodoItem passent avec le repo SQL.
+**4.3 — TodoItem persistence (≈ 30 min)**
+- *Objectif* : dispatch `soma-persistence-builder` pour `TodoItemRepository`.
+- *Skills lues par le main agent* : `orchestrating-feature-dev`, `database-and-migrations`.
+- *Design phase (main agent)* :
+  - Schema `todo_items` : `id UUID PK, list_id UUID NOT NULL FK → todo_lists, title VARCHAR(255), description TEXT NULL, priority VARCHAR(16) NOT NULL ('LOW'|'MEDIUM'|'HIGH'|'URGENT'), completed_at TIMESTAMPTZ NULL, created_at TIMESTAMPTZ NOT NULL, deleted_at TIMESTAMPTZ NULL`
+  - FK `list_id` avec ON DELETE CASCADE (si la liste est purgée, les items partent avec)
+  - Index sur `list_id` (pour `find_by_list`)
+- *Actions* : Dispatch `soma-persistence-builder` avec le brief.
+- *Check* :
+  - Migration roundtrip clean
+  - Toutes les méthodes du Protocol `TodoItemRepository` implémentées (`add`, `find_by_id`, `find_open_by_id`, `find_completed_by_id`, `find_by_list`, `count_active_by_list`, …)
+  - Les 6 e2e tests du CRUD TodoItem passent **avec le repo SQL en place**
+  - **Question méta** : la migration drift-check est-elle vraiment vide ? Si autogen propose des modifications, c'est que le model SQLAlchemy ne matche pas la migration — bug à logger.
 
 ---
 
@@ -257,14 +330,26 @@ Format de chaque étape : `**X.Y — <titre> (≈ Z min)**` + objectif + skills 
   - Wire dans `container.py` et dans `dependencies/`
 - *Check* : la skill `adding-a-new-abstraction` a-t-elle un anti-pattern qui te bloque ? Si oui, log dans le rapport.
 
-**5.2 — ShareTodoList use case (≈ 25 min)**
-- *Objectif* : `ShareTodoList` avec authz owner-only + NotificationSender + audit + event.
-- *Skills* : `adding-a-use-case`, `adding-auth`.
+**5.2 — ShareTodoList use case (via builders) (≈ 50 min)**
+- *Objectif* : `ShareTodoList` avec authz owner-only + appel `NotificationSender` + event ; full vertical slice avec persistence pour la nouvelle entity `TodoListShare`.
+- *Skills lues par le main agent* : `orchestrating-feature-dev`, `adding-a-use-case`, `adding-auth`, `database-and-migrations`, `naming-conventions`.
+- *Design phase (main agent)* :
+  - Use case `ShareTodoListUseCase` : load list, vérifie owner (raise `NotAuthorizedToShareError` sinon), crée `TodoListShare`, appelle `NotificationSender.notify_shared`, émet `todo_list.shared`.
+  - Méthodes Protocol nouvelles :
+    - `TodoListRepository.find_owned_by_owner_and_id(owner_id, list_id) -> TodoList | None` (retourne `None` si la liste n'existe pas OU n'est pas owned by `owner_id`)
+    - `TodoListShareRepository.find_by_list_and_user(list_id, user_id) -> TodoListShare | None` (check si déjà shared)
+  - Event `todo_list.shared` payload : `{list_id, shared_with_user_id, shared_at_iso}`
+  - Exception `NotAuthorizedToShareError` (code `NOT_AUTHORIZED_TO_SHARE`, mapping 403)
+  - HTTP : `POST /v1/todo-lists/{id}/shares` body `{user_id: UUID}` → 201 happy, 403 si pas owner, 409 si déjà sharé, 404 si liste inexistante
 - *Actions* :
-  - `ShareTodoListUseCase` : load list, vérifie owner, crée `TodoListShare` row, appelle `NotificationSender.notify_shared`, émet `todo_list.shared`.
-  - Migration + repo pour `TodoListShare` (dispatch agents)
-  - Route `POST /v1/todo-lists/{id}/shares`
-- *Check* : 4 tests (happy + not owner + share with self → error + repeated share idempotent) verts ; vérifier que `NotificationSender` est appelé une fois par share (Spy via Fake).
+  - Dispatch `soma-use-case-builder` pour le use case
+  - Dispatch `soma-persistence-builder` pour `SqlAlchemyTodoListShareRepository` + migration (table `todo_list_shares` : `id UUID PK, list_id UUID FK, user_id UUID, shared_at TIMESTAMPTZ NOT NULL`, UNIQUE `(list_id, user_id)`)
+  - Dispatch `soma-route-builder` pour l'endpoint
+- *Check* :
+  - 4 tests unit (happy + not owner → 403 + share with self → error métier + repeated share → 409)
+  - `NotificationSender` est appelé une fois par share réussi (Spy via Fake, asserté dans le unit test)
+  - Migration roundtrip clean
+  - e2e tests verts
 
 ---
 
@@ -284,22 +369,48 @@ Format de chaque étape : `**X.Y — <titre> (≈ Z min)**` + objectif + skills 
 
 ---
 
-### Phase 7 — Use case complexe
+### Phase 7 — Use case complexe (MoveTodoItem)
 
-**7.1 — MoveTodoItem domain logic (≈ 20 min)**
-- *Objectif* : la méthode `TodoItem.move_to(to_list_id)` côté domain + tests unit.
-- *Skills* : `writing-domain-code`.
-- *Actions* : méthode pure sur l'entity, raise `CannotMoveCompletedItemError` si l'item est completed, no-op si déjà dans la cible. Tests unit (4 cas).
-- *Check* : pytest unit pure-domain vert.
+C'est l'étape qui stresse le plus l'architecture : un use case multi-aggregate avec authz cross-list. Si les builders n'ont pas été conçus pour ça, le brief sera lourd ou ambigu — on le notera.
 
-**7.2 — MoveTodoItem use case + e2e (≈ 25 min)**
-- *Objectif* : use case multi-aggregate avec authz cross + atomicité.
-- *Skills* : `adding-a-use-case`, `adding-auth`, `using-the-di-container`.
+**7.1 — Design + dispatch `soma-use-case-builder` pour MoveTodoItem (≈ 35 min)**
+- *Objectif* : use case multi-aggregate (`TodoItem` + 2× `TodoList`) avec authz **cross-list** + atomicité + event.
+- *Skills lues par le main agent* : `orchestrating-feature-dev`, `adding-a-use-case`, `writing-domain-code`, `naming-conventions`, `transactions-and-events`.
+- *Design phase (main agent)* :
+  - DTO : `MoveTodoItemInput(item_id: UUID, to_list_id: UUID, actor: CurrentUser)` → `MoveTodoItemOutput(item_id, new_list_id, moved_at)`
+  - Méthode domain à ajouter : `TodoItem.move_to(to_list_id: TodoListId) -> None` (no-op si déjà dans la cible ; raise `CannotMoveCompletedItemError` si l'item est completed)
+  - Méthodes Protocol nouvelles ou réutilisées :
+    - `TodoItemRepository.find_active_by_id(id) -> TodoItem | None` (déjà ajoutée en phase 4 probablement — sinon à clarifier)
+    - `TodoListRepository.find_accessible_by_user_and_id(user_id, list_id) -> TodoList | None` (NEW — retourne la liste si user est owner OU sharee, None sinon ; **business-named** car "accessible" = la sémantique métier)
+    - `TodoItemRepository.count_active_by_list(list_id) -> int` (déjà en phase 4)
+  - Exception `CannotMoveCompletedItemError` (code `CANNOT_MOVE_COMPLETED_ITEM`, mapping 409)
+  - Event `todo_item.moved` payload `{item_id, from_list_id, to_list_id, moved_at_iso}`
+  - Use case logic :
+    1. Load item via `find_active_by_id` → `TodoItemNotFoundError` 404 si None
+    2. Load from_list via `find_accessible_by_user_and_id(actor, item.list_id)` → `NotAuthorizedToModifyError` 403 si None
+    3. Load to_list via `find_accessible_by_user_and_id(actor, to_list_id)` → `NotAuthorizedToModifyError` 403 si None
+    4. Si to_list == from_list : no-op (200 sans event ; documenter ce choix)
+    5. Si `count_active_by_list(to_list_id) >= settings.max_items_per_list` → `MaxItemsExceededError` 409
+    6. `item.move_to(to_list_id)` → peut raise `CannotMoveCompletedItemError`
+    7. `save(item)` + publish event
 - *Actions* :
-  - `MoveTodoItemUseCase` : load item + from_list + to_list ; vérifier authz **sur les deux listes** (owner ou sharee) ; vérifier `to_list.count_active < MAX_ITEMS_PER_LIST` ; appel `item.move_to(to_list_id)` ; save item ; émet `todo_item.moved`.
-  - 6 tests : happy + actor non-autorisé sur from_list + actor non-autorisé sur to_list + to_list pleine + item inexistant + item déjà completed.
-  - Route `PATCH /v1/todo-items/{id}/move` avec `to_list_id` dans le body.
-- *Check* : 6 tests verts. **Question méta** : la skill `adding-a-use-case` t'a-t-elle bien guidé pour le cas multi-aggregate, ou tu as dû inventer le pattern ? Logge dans le rapport.
+  - Dispatch `soma-use-case-builder` avec le brief.
+  - **Note critique** : le brief doit décrire les 6 chemins d'erreur explicitement. Le builder n'invente rien.
+- *Check* :
+  - 6 tests unit (happy + actor pas autorisé sur from_list + actor pas autorisé sur to_list + to_list pleine + item inexistant + item déjà completed)
+  - Mutmut ≥ 90%
+  - **Question méta importante** : le builder a-t-il géré le pattern multi-aggregate sans confusion ? La skill `adding-a-use-case` l'a-t-elle bien guidé ? Logger précisément : combien d'aller-retours avec le builder, quelles questions du builder, quelles ambiguïtés détectées.
+
+**7.2 — Dispatch `soma-route-builder` pour PATCH /v1/todo-items/{id}/move (≈ 20 min)**
+- *Objectif* : exposer `MoveTodoItem` en PATCH.
+- *Design phase* :
+  - Method + path : `PATCH /v1/todo-items/{id}/move`
+  - Body : `{to_list_id: UUID}`
+  - Auth : authenticated
+  - Status codes : 200 happy (avec response body), 403 authz, 404 item ou list, 409 (`MaxItemsExceededError` ou `CannotMoveCompletedItemError`)
+- *Check* :
+  - 4 e2e tests (1 happy + 3 critical : 403 + 404 + 409)
+  - **Question méta** : un PATCH avec body est-il bien supporté par le builder ? Status code 200 (vs 204) sur un PATCH avec response : la skill `using-the-di-container` ou `adding-auth` traite-t-elle ce cas ?
 
 ---
 
@@ -444,32 +555,33 @@ Le rapport sera ajouté à la fin de ce document après le walkthrough. Structur
 
 ## 10. Estimation de temps
 
-22 étapes au total, 15-30 min chacune. Chaque fin d'étape est un checkpoint commitable.
+Les estimations ont été revues après le pivot architectural (commit `fc3d7d3`) : chaque dispatch de builder feature-level fait plus de boulot qu'un dispatch d'agent tech-narrow, donc les étapes individuelles sont plus longues mais on en a moins.
 
-| Phase | Étapes | Cumulé |
+| Phase | Détail | Cumulé |
 |---|---|---|
-| 0 — Setup | 1 étape × 15 min | 15 min |
-| 1 — Domain | 4 étapes (20+25+10+15) | 1h10 |
-| 2 — CreateTodoList | 2 étapes (25+20) | 45 min |
-| 3 — Persistence TodoList | 2 étapes (15+20) | 35 min |
-| 4 — TodoItem CRUD | 3 étapes (25+25+20) | 1h10 |
-| 5 — Sharing + abstraction | 2 étapes (20+25) | 45 min |
-| 6 — Outbox + idempotency | 2 étapes (15+15) | 30 min |
-| 7 — MoveTodoItem (complex) | 2 étapes (20+25) | 45 min |
-| 8 — Helm + observability | 2 étapes (15+15) | 30 min |
-| 9 — Event sourcing TodoItem | 3 étapes (15+25+25) | 1h05 |
-| 10 — Self-review + rapport | 2 étapes (15+15) | 30 min |
-| **Total** | **22 étapes** | **~8h** |
+| 0 — Setup | 1 étape (bake + smoke) | 15 min |
+| 1 — Domain | 4 étapes (VOs, entities, exceptions, Protocol skeletons) | 1h10 |
+| 2 — CreateTodoList | 2 dispatches (use-case + route) | 55 min |
+| 3 — Persistence TodoList | 1 dispatch (persistence-builder) | 30 min |
+| 4 — TodoItem CRUD | 7 dispatches (6 use cases × 2 dispatches each, batch in 3 phases) + 1 persistence | 2h45 |
+| 5 — Sharing + NotificationSender | NotificationSender inline + 3 dispatches (use-case + persistence + route) | 1h |
+| 6 — Outbox + idempotency | 2 étapes (handlers + e2e idempotency) | 30 min |
+| 7 — MoveTodoItem (complex) | 2 dispatches (use-case + route) | 55 min |
+| 8 — Helm + observability | 2 étapes (helm-engineer + obs visuel) | 30 min |
+| 9 — Event sourcing TodoItem | 3 étapes (bootstrap + rewrite + swap) | 1h05 |
+| 10 — Self-review + rapport | 2 étapes | 30 min |
+| **Total** | | **~9h45** |
 
-Le total a augmenté (8h vs 5h30 précédent) parce que le découpage révèle des étapes qu'on avait sous-estimées. C'est le bon chiffre, pas une régression.
+Le total monte par rapport au plan précédent (8h) parce que les phases 4, 5, 7 ont gagné des dispatches `soma-route-builder` qui sont des appels d'agent réels avec leur propre cycle écriture+tests. Honnête : c'est une charge plus réaliste, et chaque dispatch est un test du builder.
 
 Découpage suggéré en sessions :
-- **Session A — Foundation** (≈ 2h45) : phases 0 → 3 (setup, domain, premier use case, persistence)
-- **Session B — Features** (≈ 2h30) : phases 4 → 6 (TodoItem CRUD, sharing, cross-cutting)
-- **Session C — Complex + ES** (≈ 1h45) : phases 7 → 9 (multi-aggregate, helm, event sourcing)
-- **Session D — Verdict** (≈ 30 min) : phase 10 (self-review + rapport final)
+- **Session A — Foundation** (≈ 2h50) : phases 0 → 3 (setup, domain skeleton, CreateTodoList complet, persistence TodoList)
+- **Session B1 — TodoItem CRUD** (≈ 2h45) : phase 4 seule (la plus dense, 6 use cases × 2 dispatches)
+- **Session B2 — Sharing + cross-cutting** (≈ 1h30) : phases 5 + 6
+- **Session C — Complex + ES + Helm** (≈ 2h30) : phases 7 + 8 + 9
+- **Session D — Verdict** (≈ 30 min) : phase 10
 
-Pause possible entre n'importe quelles étapes via commit. Si une étape révèle un trou bloquant, je documente et passe à la suivante.
+Pause possible entre n'importe quelles étapes via commit (1 commit par phase, soit 10 commits total). Si une étape révèle un trou bloquant, je documente et passe à la suivante.
 
 ---
 
