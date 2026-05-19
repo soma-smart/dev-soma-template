@@ -6,24 +6,50 @@ when_to_use: User asks for a feature ("crée CreateTodoList qui refuse les doubl
 
 # Orchestrating feature dev
 
-## The enrichment pattern — short user prompt, detailed plan, short brief
+## The enrichment pattern — short user prompt, behavioral plan, short brief
 
 The user typically asks for features in one line:
 
-> *« Crée CreateTodoList qui refuse les doublons par owner et émet todo_list.created »*
+> *« Je veux pouvoir créer une TodoList, une seule par personne, avec un nom et une description »*
 
-That single line is NOT a brief you forward to a builder verbatim. The main agent **enriches** it:
+That single line is NOT a brief you forward to a builder verbatim. The main agent **enriches it into a behavioural plan** the user can validate — but the enrichment is strictly **outside-in**: it lists what's **testable** and what's **externally observable**, never what classes/methods will exist inside the domain.
+
+### What goes in the enriched plan
+
+The plan contains exactly these five sections:
+
+1. **Tests that will be written** — the behavioural cases that drive the implementation, expressed in GIVEN/WHEN/THEN at the use case level (e.g. "given an authenticated user with no list, when they create one with a valid name, then the list is persisted and an event is emitted"). One bullet per branch the user cares about. This is the **specification**.
+
+2. **Abstractions needed — by role, never by name** — list the *roles* of the collaborators the use case will lean on (e.g. "a repository for the new entity", "an event bus", "the existing Clock and IdGenerator"). Do **NOT** write `TodoListRepository` or `find_active_by_owner_and_name`. The builder names everything.
+
+3. **API surface — one line unless it gets weird** — `<METHOD> <path>`, the auth scheme (`authenticated`, `public`, `role:<x>`), the status codes for each outcome, and the idempotency flag. Elaborate **only** when something non-obvious is at play: a non-trivial translation between request body and use case input, a custom auth flow, a multi-aggregate orchestration that affects status codes, etc. In the default boring case, the API line is 30 seconds of reading.
+
+4. **External contracts that ARE pre-decided** — event name (the `<aggregate>.<verb_past>` literal), event payload semantics ("the consumer must be able to identify the new list, its owner, …"), HTTP status code per outcome, error code mapping. These are observable by third parties (consumers, clients) and must be stable, so the main agent commits to them BEFORE the builder fires.
+
+5. **Behavioural questions to clarify** — anything the prompt left ambiguous that changes observable behaviour: soft-delete vs hard-delete (affects "can I recreate after deletion?"), validation bounds, how the actor identity arrives in the use case, multi-tenancy scope, retry semantics. Each question is a fork the user must answer before dispatch.
+
+### What does NOT go in the plan
+
+- Class names (no "TodoList entity", no "TodoListId VO")
+- Protocol method signatures (no "find_active_by_owner_and_name")
+- Exception names or codes (the builder picks them per `naming-conventions`)
+- Entity field lists (the builder adds a field when a test demands it)
+- DTO field lists (same)
+
+These are **internal** and emerge from the tests during implementation. If the main agent pre-decides them, it has committed to a shape before any test red, which is anti-TDD and defeats the discipline the builder is supposed to apply.
+
+### The flow
 
 1. Read the skills you need (`adding-a-use-case`, `tdd-workflow`, `naming-conventions`, `transactions-and-events`, …).
-2. Build an **enriched plan** in the conversation: feature description in 2-3 sentences, anticipated domain pieces that will emerge (entity, VO, exception with its `code`), Protocol method(s) the use case will need (with business-named signatures), event payload shape, HTTP semantics, status codes per outcome.
-3. **Show the plan to the user** and wait for validation. Ask clarifying questions if the prompt left a gap (idempotent? soft-delete? authz scope?).
-4. On the user's OK, dispatch the builder with a **short brief** (~10 lines) that just states the feature, the available collaborators, the wrapper for commands, and what to report. The builder runs in a fresh context and applies its skills (TDD outside-in, naming, mutation) on its own.
+2. Produce the five-section enriched plan above. Keep it under one page.
+3. Show the plan to the user and wait for validation. Address the behavioural questions explicitly.
+4. On the user's OK, dispatch the builder with a **short brief** (~10 lines): the user story, the available collaborators, the wrapper for commands, the external contracts (event name + payload semantics + status codes), and what to report. The builder runs in a fresh context, applies its outside-in skills, and emerges the rest.
 
-Why this layering: the user can correct the design BEFORE expensive builder work fires; the builder receives only what it needs to act; the main agent absorbs the conversation history (the builder must not).
+Why this layering: the user can correct the **behaviour** BEFORE expensive builder work fires; the builder receives only what it needs to act and is free to apply the discipline its skills prescribe; the main agent absorbs the conversation history (the builder must not).
 
 ## The mental model
 
-The **main agent is an architect**. It designs the feature: Protocol shape, DTO fields, event names + payloads, domain exceptions, status codes. It then dispatches **feature-level builders** that produce the vertical slice for one layer each:
+The **main agent is the behaviour-and-contract negotiator**. It clarifies WHAT must be true, names the EXTERNAL contracts (event names, status codes), and dispatches builders that produce the vertical slice via strict outside-in TDD. The main agent does **NOT** design the internal shape (class names, Protocol methods, exception names, entity fields) — that emerges from the tests the builder writes.
 
 ```
 User: "Crée CreateTodoList qui refuse les doublons par owner."
