@@ -78,6 +78,9 @@ def test_given_default_inputs_when_baking_then_creates_expected_layout(cookies) 
     assert (project / ".claude" / "skills" / "event-sourcing-pattern" / "SKILL.md").is_file()
     assert (project / "helm" / "acme-service" / "Chart.yaml").is_file()
     assert (project / ".devcontainer" / "devcontainer.json").is_file()
+    post_up = project / ".devcontainer" / "post-up.sh"
+    assert post_up.is_file(), "missing .devcontainer/post-up.sh"
+    assert post_up.stat().st_mode & 0o111, "post-up.sh must be executable"
 
 
 @pytest.mark.unit

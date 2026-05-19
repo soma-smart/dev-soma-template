@@ -7,7 +7,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    command: sleep infinity
+    # post-up.sh fixes docker.sock GID access for vscode when the stack is
+    # brought up via plain `docker compose up` (the devcontainer CLI would
+    # otherwise run the docker-outside-of-docker:1 Feature). Idempotent.
+    command: ["bash", "-c", "sudo /workspaces/{{ cookiecutter.project_slug }}/.devcontainer/post-up.sh || true; exec sleep infinity"]
     volumes:
       - ../..:/workspaces:cached
       # Mount the host docker.sock so testcontainers can spawn ephemeral
