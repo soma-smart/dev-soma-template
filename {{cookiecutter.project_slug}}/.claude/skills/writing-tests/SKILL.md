@@ -24,6 +24,12 @@ Per-layer conftests under `tests/conftest.py` (root primitives) + `tests/unit/co
 
 ## Hard rules
 
+### 0. Outer drives inner
+
+For a new feature, the **first** failing test is at the use case level (`tests/unit/application/`) with Fakes. Domain-level tests (`tests/unit/domain/`) are added afterwards, only for invariants that the use case test cannot express well on its own. See `tdd-workflow` for the outside-in loop.
+
+The use case test is the **specification**; the domain test is **drill**. Never the opposite order.
+
 ### 1. Fakes-only at unit
 
 Pass an in-memory implementation from `tests/fakes/` to the system under test. **Forbidden** in `tests/unit/`: `unittest.mock`, `Mock`, `MagicMock`, `Spy`, `Stub`, `patch`.

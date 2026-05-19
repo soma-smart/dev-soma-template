@@ -6,6 +6,21 @@ when_to_use: User asks for a feature ("crée CreateTodoList qui refuse les doubl
 
 # Orchestrating feature dev
 
+## The enrichment pattern — short user prompt, detailed plan, short brief
+
+The user typically asks for features in one line:
+
+> *« Crée CreateTodoList qui refuse les doublons par owner et émet todo_list.created »*
+
+That single line is NOT a brief you forward to a builder verbatim. The main agent **enriches** it:
+
+1. Read the skills you need (`adding-a-use-case`, `tdd-workflow`, `naming-conventions`, `transactions-and-events`, …).
+2. Build an **enriched plan** in the conversation: feature description in 2-3 sentences, anticipated domain pieces that will emerge (entity, VO, exception with its `code`), Protocol method(s) the use case will need (with business-named signatures), event payload shape, HTTP semantics, status codes per outcome.
+3. **Show the plan to the user** and wait for validation. Ask clarifying questions if the prompt left a gap (idempotent? soft-delete? authz scope?).
+4. On the user's OK, dispatch the builder with a **short brief** (~10 lines) that just states the feature, the available collaborators, the wrapper for commands, and what to report. The builder runs in a fresh context and applies its skills (TDD outside-in, naming, mutation) on its own.
+
+Why this layering: the user can correct the design BEFORE expensive builder work fires; the builder receives only what it needs to act; the main agent absorbs the conversation history (the builder must not).
+
 ## The mental model
 
 The **main agent is an architect**. It designs the feature: Protocol shape, DTO fields, event names + payloads, domain exceptions, status codes. It then dispatches **feature-level builders** that produce the vertical slice for one layer each:
@@ -91,122 +106,78 @@ Cette design phase est **dans la conversation**, pas en fichiers. Elle sert de b
 
 Chaque brief est **self-contained** : aucun « comme on en a parlé », aucune référence implicite à la conversation. Le builder runs in a fresh context.
 
-### Brief pour `soma-use-case-builder`
+### Brief pour `soma-use-case-builder` (short — ~10 lines)
+
+The builder has TDD outside-in, naming, mutation, and file placement in its own skills. The brief states the feature in business terms and points to the existing collaborators. No need to spell out the deliverable list — the builder's `.md` covers that.
 
 ```
-Build the <Name>UseCase.
+Build the "<short feature title>" feature.
 
-Business intent:
-- <one paragraph: what the use case does, in business terms>
+User story:
+<2-3 sentences of feature behaviour and rules — duplicates, validation,
+events, etc. Phrased from the user's POV. The builder picks the names.>
 
-Input DTO fields:
-- field_a: <type>, <constraints> (e.g. "1-255 chars")
-- field_b: ...
+Available collaborators (Protocols already shipped in application/):
+Clock, IdGenerator, EventBus, CurrentUser, and the existing
+<reference feature> entity/repository for naming conventions.
 
-Output DTO shape:
-- <fields>
+Run Python tooling via /tmp/<bake-dir>/run.sh <cmd>.
 
-Domain rules to enforce (each raises a named DomainError):
-- <rule 1> → <ExceptionClass> (code: SCREAMING_SNAKE)
-- <rule 2> → ...
-
-Event emitted (if any):
-- name: <aggregate>.<verb_past>
-- payload: <flat dict shape>
-
-Repository methods you'll need (extend the Protocol with business-named methods):
-- TodoListRepository.add(todo_list) — inherited
-- TodoListRepository.find_active_by_owner_and_name(owner_id, name) → TodoList | None
-  - Used for: <one-line intent>
-  - Filter contract: ignores soft-deleted lists
-- ... (one per business question the use case asks)
-
-Other collaborators:
-- Clock, IdGenerator, EventBus (and any cross-cutting Protocol that exists)
-
-Skills to read first: adding-a-use-case, tdd-workflow, writing-tests,
-writing-domain-code, naming-conventions (section "Repository method naming"),
-adding-a-domain-exception, transactions-and-events (if events).
-
-Deliverables: domain entity (if new), value objects (if new), exceptions (if new),
-application/repositories/<entity>.py (Protocol skeleton if new + business methods),
-application/dtos/<entity>.py, application/use_cases/<verb>_<noun>.py,
-tests/fakes/repositories/<entity>.py, tests/unit/application/test_<verb>_<noun>_use_case.py.
-
-Verify: pytest -m unit green; mutmut on touched paths ≥ 90%;
-scripts/checks/no_third_party_in_domain.py + test_naming.py clean.
+Report: files touched, mutation rate, Protocol methods added (with
+business intent), domain exceptions created (with codes), anything
+outstanding for the persistence-builder or route-builder.
 ```
 
-### Brief pour `soma-persistence-builder`
+The user story is the ONLY contract — the builder derives the DTO shape, the entity fields, the Protocol method names, and the exception names from there. You as the main agent will have already validated those choices via the enriched plan you showed the user.
+
+### Brief pour `soma-persistence-builder` (short)
 
 ```
-Implement the SQLAlchemy persistence for <Name>Repository.
+Implement the SQLAlchemy persistence for the <Entity> aggregate.
 
-Read application/repositories/<entity>.py first — implement EVERY method
-the Protocol declares, exactly as its docstring prescribes (the docstring
-is the WHERE-clause contract; do not invent semantics).
-
-Entity domain class: src/<pkg>/domain/entities/<entity>.py (already built).
+The Repository Protocol is at application/repositories/<entity>.py —
+implement EVERY method as its docstring prescribes (the docstring is
+the WHERE-clause contract; do not invent semantics).
 
 Schema:
-- table <entities>: <column list with types, NOT NULL, default>
-- indexes: <list>
-- unique constraints: <list, including "WHERE deleted_at IS NULL" for partial>
-- foreign keys: <list with ON DELETE behavior>
+- <one-line column summary: types, NOT NULL, soft-delete column>
+- Unique constraint: <if any, e.g. "(owner_id, name) WHERE deleted_at IS NULL">
+- Foreign keys: <if any, with ON DELETE behaviour>
 
-Soft-delete column: deleted_at TIMESTAMPTZ NULL (SOMA convention).
+On IntegrityError from a uniqueness violation, raise <Entity>AlreadyExistsError.
 
-IntegrityError translation:
-- On (owner_id, name) duplicate → raise <Entity>AlreadyExistsError
-- ... (one per uniqueness constraint)
+Run Python tooling via /tmp/<bake-dir>/run.sh <cmd>.
 
-Skills to read: database-and-migrations, writing-tests (integration section).
-
-Deliverables: alembic/versions/<NNNN>_init_<entities>.py (curated + roundtrip),
-infrastructure/persistence/models/<entity>.py, infrastructure/persistence/
-<entity>_repository.py, tests/integration/infrastructure/test_<entity>_
-repository.py (one test per Protocol method invariant).
-
-Verify: just migrate → migrate-down → migrate clean; ci-migration-drift
-yields empty migration body; pytest -m integration on touched paths green.
+Report: migration roundtrip status, Protocol methods implemented,
+integration tests written, anything outstanding.
 ```
 
-### Brief pour `soma-route-builder`
+The builder has the rest in its own skills.
+
+### Brief pour `soma-route-builder` (short)
 
 ```
 Expose <Name>UseCase over HTTP.
 
 HTTP semantics:
-- Method: <POST/PUT/PATCH/DELETE/GET>
-- Path: /v1/<resource>[/{id}[/<sub>]]
-- Auth: authenticated (default) | public (justify) | role-restricted: <roles>
-- Idempotency: yes (POST/PUT typically) | no (PATCH/DELETE typically)
+- <METHOD> <path>
+- Auth: <authenticated | public | role-restricted: <roles>>
+- Idempotency: <yes (POST/PUT) | no>
 
-Request body fields (Pydantic schema):
-- <field>: <type>, <Pydantic constraint>
-- ...
+Status codes per outcome:
+- 201/200 happy: <one line on the response shape>
+- <status> on <ExceptionClass> (add to ERROR_HTTP_MAPPING if missing)
+- <repeat per error>
 
-Response body (Pydantic schema):
-- status 201/200: <fields>
+The use case lives at application/use_cases/<verb>_<noun>.py; its
+Input/Output DTOs are in application/dtos/<entity>.py.
 
-Error mapping (DomainError → HTTP):
-- <ExceptionClass> → <status> <code>
-  (if any are NOT yet in ERROR_HTTP_MAPPING, add them in error_handlers.py)
+Run Python tooling via /tmp/<bake-dir>/run.sh <cmd>.
 
-The use case is at application/use_cases/<verb>_<noun>.py (already built).
-Its Input DTO is at application/dtos/<entity>.py.
-
-Skills to read: using-the-di-container, adding-auth, idempotency-and-retries
-(if idempotent), writing-tests (e2e section).
-
-Deliverables: presentation/api/schemas/<entity>.py (request + response),
-presentation/api/v1/<entity>.py (router), presentation/api/dependencies/
-<entity>.py (Depends wrappers), container.py (additions: build_<verb>_<noun>_
-use_case), app.py (include_router), error_handlers.py (additions if new
-exceptions), tests/e2e/api/test_<resource>_endpoint.py (1 happy + 1 critical).
-
-Verify: pytest -m e2e -k <resource> green; just lint clean.
+Report: files touched, mapping additions, e2e tests written.
 ```
+
+The builder has Pydantic schema patterns, container factory style, dependency wiring, and e2e fixture usage in its own skill.
 
 ## Sequential vs. parallel between builders
 

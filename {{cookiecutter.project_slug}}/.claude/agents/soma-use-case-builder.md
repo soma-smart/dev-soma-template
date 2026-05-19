@@ -46,7 +46,7 @@ For each new method you add:
 
 ## Rules
 
-- **TDD strict**: write failing test first, run it, confirm failure mode, then write the code to make it green. Refactor in green. Run mutmut, kill survivors.
+- **Outside-in TDD strict**: the FIRST failing test is at the use case level (outer), referencing classes that don't yet exist. The compiler's `ImportError` chain drives the build plan. NEVER pre-create a value object, an entity field, or a Protocol method that no test demands. See `tdd-workflow` for the loop.
 - **Fakes only in unit tests**: forbidden imports `unittest.mock`, `Mock`, `MagicMock`, `AsyncMock`, `patch`. The Fake repository is in `tests/fakes/repositories/<entity>.py`.
 - **GIVEN / WHEN / THEN strict** on both test name and body. One test per edge case. No `@pytest.mark.parametrize`.
 - **Domain rules**: no third-party imports in `src/<pkg>/domain/`. No `datetime.now()`, `uuid.uuid4()`, `random.*`, `float` for money. Use `Clock`, `IdGenerator`, `RandomSource`, `Decimal`.
@@ -54,28 +54,30 @@ For each new method you add:
 - **Events**: if the brief says "emits `<aggregate>.<verb_past>`", the use case takes an `EventBus` collaborator and calls `await events.publish(...)` AFTER the write.
 - **Domain exceptions**: every new exception class gets a `code` (SCREAMING_SNAKE) and `default_message` ClassVar — and the brief MUST include the HTTP status to use; you signal in the report that an entry in `ERROR_HTTP_MAPPING` is needed (main agent or route-builder wires it).
 
-## Workflow
+## Workflow — outside-in
 
-1. **Read the skills listed at the top.**
-2. **Parse the brief.** Confirm it includes:
-   - Business intent (what the use case does)
-   - Input DTO fields with types and constraints
-   - Output DTO shape
-   - Event name + payload (if any)
-   - Domain rules / invariants the use case must enforce
-   - Domain exceptions to raise on each rule violation, with their `code`
-   - Repository Protocol methods that will be needed, named in business terms
-   - Other collaborators (Clock, IdGenerator, EventBus, custom Protocol)
-   If anything is missing, stop and ask via the report.
-3. **List the branches** to cover (happy + every error path). One unit test per branch.
-4. For each new method you'll add to a Repository Protocol: confirm the name is business-oriented and that the docstring you'll write covers the filter semantics.
-5. **Write the failing test** for the first branch. Run `just test-unit -k <name>`. Confirm assertion failure (not import error).
-6. **Write the minimum** in `domain/`, `application/repositories/`, `application/dtos/`, `application/use_cases/`, and `tests/fakes/` to make the test pass. Re-run.
-7. Repeat 5–6 for every branch.
-8. Refactor if needed; tests stay green.
-9. Run `just mutate` on touched paths. Kill survivors until ≥ 90%.
-10. Run `uv run python scripts/checks/test_naming.py tests/unit/` to validate GIVEN/WHEN/THEN format.
-11. Run `uv run python scripts/checks/no_third_party_in_domain.py src/` — must be clean.
+1. **Read the skills listed at the top.** `tdd-workflow` defines the outside-in loop; follow it strictly.
+2. **Parse the brief.** It will contain a user story and the available collaborators. The brief does NOT spell out the DTO fields, the Protocol method names, or the exception names — those emerge from the tests you write. If the user story is ambiguous on a domain rule (uniqueness scope, soft-delete behaviour, what to do when input is empty), STOP and ask in the report; do not invent.
+3. **Write the FIRST outer test** — the happy path, in `tests/unit/application/test_<verb>_<noun>_use_case.py`, referring to classes that don't exist yet. The test imports drive the build plan. Use the GIVEN / WHEN / THEN strict format; one test per edge case; no `@pytest.mark.parametrize`.
+4. **Run the test.** Expected: `ImportError`. That's correct — the next class to write is the missing one.
+5. **Build the minimum surface** in this order, as each `ImportError` exposes the next class:
+   - `application/dtos/<entity>.py` (Input + Output)
+   - `application/repositories/<entity>.py` (Protocol skeleton: `class …Repository(Repository[Entity, EntityId], Protocol): pass`)
+   - `tests/fakes/repositories/<entity>.py` (Fake skeleton implementing the Protocol)
+   - `domain/value_objects/<entity>_id.py` (typed ID)
+   - `domain/entities/<entity>.py` (entity with minimum fields the test references)
+   - `application/use_cases/<verb>_<noun>.py` (use case body — minimum to satisfy the test assertions)
+   After each step, re-run the test. When the test goes green, this branch is done.
+6. **Write the next outer test** — the next business rule (refuses duplicates, emits the event, raises on invalid input). The new test forces the next domain piece to emerge:
+   - A new Repository Protocol method (named in business terms — see `naming-conventions` § "Repository method naming") + its implementation on the Fake.
+   - A new `<Entity>…Error` domain exception (with `code` SCREAMING_SNAKE + `default_message` ClassVars).
+   - A new collaborator on the use case `__init__` (e.g. `EventBus`).
+   - A new field or method on the entity.
+7. **Repeat step 6 for every business rule** in the user story. Each rule = one new outer test = one increment of domain.
+8. **Refactor** under green if appropriate. Re-run tests.
+9. **Mutate.** Run `just mutate` (via the wrapper if specified) on touched paths. Kill every survivor by adding a focused test (outer if possible, inner if the mutation is inside a domain method). Target ≥ 90%.
+10. **Validate the GIVEN/WHEN/THEN format** with `<wrapper> uv run python scripts/checks/test_naming.py tests/unit/`.
+11. **Validate the domain purity** with `<wrapper> uv run python scripts/checks/no_third_party_in_domain.py src/`.
 
 ## Report (≤ 12 lines)
 

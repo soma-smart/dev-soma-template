@@ -4,36 +4,58 @@ description: End-to-end walkthrough for adding a new feature — domain types �
 when_to_use: User asks for "a new endpoint", "let's implement <verb> <noun>", "add a feature to do X". Pair with tdd-workflow at every step that produces logic.
 ---
 
-# Adding a use case
+# Adding a use case (outside-in)
 
-A new feature crosses all four layers. The order below matches the dependency direction (domain first, presentation last) and matches what the shipped **User** feature demonstrates file-by-file. Read every step alongside its `User` counterpart — that file IS the worked example.
+A new feature crosses all four layers. The discipline is **outside-in**: start from the feature description, write the failing outer test (use case with Fakes), let domain pieces emerge as the test demands them. NEVER pre-build VOs, entities, or Protocol methods that no test requires.
 
-## 0. Pair with `tdd-workflow`
+The shipped **User** feature is the file-by-file reference; cross-link each section with its `User` counterpart.
 
-Every step that produces logic in `domain/` or `application/` is preceded by a failing unit test. The mutation testing step at the end is non-negotiable. See `tdd-workflow` for the loop and `writing-tests` for the test format.
+## 0. State the feature in one sentence
 
-## 1. Domain types
+Before opening any file:
 
-| Need | Where | Base class | User reference |
+> *« As an authenticated user, I want to <do X> by providing <Y>. The system must <rule 1>. After success, <observable outcome / event>. »*
+
+Write it down (in the PR description, in your scratchpad, in a doc). Each clause becomes either a unit test branch or a non-functional concern (auth, idempotency, observability).
+
+## 1. Pair with `tdd-workflow` and write the outer test first
+
+Open `tests/unit/application/test_<verb>_<noun>_use_case.py` and write the test as if every class and method already existed. The compiler's `ImportError` chain is your build plan. See `tdd-workflow` for the loop and `writing-tests` for the GIVEN/WHEN/THEN format.
+
+The outer test references the things you'll build, **in their final names**:
+- The `<Action><Noun>UseCase` class
+- Its DTOs (`<Action><Noun>Input`, `<Action><Noun>Output`)
+- The `InMemory<Entity>Repository` Fake
+- The entity + value objects the assertions touch
+
+Run the test. Get an `ImportError`. That's correct — the next file you create is the missing import.
+
+## 2. Let the domain emerge — reference for "where does each piece go"
+
+As the outer test imports things, you create them under these layers. **Don't open these files until the test demands them.**
+
+### Domain (emerges first, because the Fake stores entities)
+
+| Emerges when… | Where | Base | User reference |
 |---|---|---|---|
-| New value object (Email, Money, an ID type, …) | `domain/value_objects/<name>.py` | `ValueObject` + `@dataclass(frozen=True, slots=True)` | `domain/value_objects/email.py`, `domain/value_objects/user_id.py` |
-| New entity (User, Order, …) | `domain/entities/<name>.py` | `Entity[<Name>Id]` | `domain/entities/user.py` |
-| New business exception | `domain/exceptions/<bounded_context>.py` | `DomainError` (`code` + `default_message`) | `domain/exceptions/user.py` |
+| The test stores entity instances in the Fake | `domain/entities/<name>.py` | `Entity[<Name>Id]` | `domain/entities/user.py` |
+| The entity needs a typed identifier or a constrained scalar (Email, Money, …) | `domain/value_objects/<name>.py` | `ValueObject` + `@dataclass(frozen=True, slots=True)` | `domain/value_objects/email.py`, `user_id.py` |
+| The test calls `pytest.raises(<X>Error)` | `domain/exceptions/<bounded_context>.py` | `DomainError` (`code` + `default_message`) | `domain/exceptions/user.py` |
 
 For the rules domain code must follow (no third-party, no `datetime.now()`, no `float`, no log), see `writing-domain-code`.
 
-## 2. Application abstractions
+### Application (emerges next, because the use case is the Outer Test SUT)
 
-| Need | Where | Base | User reference |
+| Emerges when… | Where | Base | User reference |
 |---|---|---|---|
-| Persistence for the new entity | `application/repositories/<entity>.py` | `Repository[<Entity>, <Entity>Id]` Protocol — extend it as a sub-Protocol and declare only entity-specific finders; `add` and `find_by_id` are inherited. | `application/repositories/user.py` |
-| New cross-cutting collaborator (`EmailSender`, `Cache`, …) | `application/<role>.py` | `typing.Protocol` | none in the User feature |
+| The Fake stores something — you need a Protocol to type-hint it | `application/repositories/<entity>.py` | `Repository[<Entity>, <Entity>Id]` Protocol — start empty; add business-named methods only when a test forces them. | `application/repositories/user.py` |
+| The use case body needs a collaborator that doesn't exist yet (`EmailSender`, `Cache`, …) | `application/<role>.py` | `typing.Protocol` | none in the User feature |
 
 **Before declaring a new collaborator**, read `adding-a-new-abstraction`. The existing protocols (`Clock`, `IdGenerator`, `RandomSource`, `EventBus`, `AuditLog`, `Repository`) cover most "I need a new port" thoughts.
 
 ### Extending a Repository Protocol with business-named methods
 
-The base `Repository[TEntity, TId]` Protocol ships only `add` and `find_by_id`. **Every other method is added by the use case that needs it**, named after the business question being asked, not the SQL operation.
+The base `Repository[TEntity, TId]` Protocol ships only `add` and `find_by_id`. **Every other method is added by the test that needs it** (outside-in), named after the business question being asked, not the SQL operation. You don't add a method preemptively because "we'll probably need it"; you add it when the next red test refers to it.
 
 A use case that needs to check "is this name available for this owner?" adds:
 
@@ -63,7 +85,7 @@ Naming rules (full table + anti-pattern examples in `naming-conventions`):
 
 A common mistake: dumping a `find_by_X(value)` for every field on the Repo. That's an ORM with extra steps. If the use case can express the question in business terms, the method should be named in business terms.
 
-## 3. The use case
+## 3. The use case body
 
 `application/use_cases/<verb>_<noun>.py`:
 
@@ -102,14 +124,19 @@ class <Action><Noun>Output:
 
 User reference: `application/dtos/user.py` (`CreateUserInput`, `CreateUserOutput`).
 
-## 4. Unit tests (written FIRST, see step 0)
+## 4. Next branches — each new business rule is a new outer red
 
-* `tests/unit/application/test_<action>_<noun>_use_case.py` — exhaustive branch coverage with Fakes from `tests/fakes/`.
-* `tests/unit/domain/test_<entity>.py`, `test_<value_object>.py` — invariants of the new domain types.
-* Format: GIVEN / WHEN / THEN, see `writing-tests`.
-* Run `just test` after each green step.
+After the happy-path test is green, each additional rule (refuses duplicates, emits an event, validates a field) is a NEW outer test that forces the next domain piece to emerge. Examples:
 
-User reference: `tests/unit/application/test_create_user_use_case.py`, `tests/unit/domain/test_email.py`, `test_user.py`.
+- "Refuses duplicates per owner" → adds a Protocol method + a `<Entity>AlreadyExistsError` + the check in the use case body.
+- "Emits `<aggregate>.<verb_past>`" → adds `EventBus` to `__init__` + `await self._events.publish(...)` after the write.
+- "Validates the input field" → either at the value object level (`<Field>Error` raised in `__post_init__`) or at the use case (a domain exception raised explicitly).
+
+Inner unit tests (`tests/unit/domain/`) are added only for invariants that the use case test can't easily express — e.g. an entity's `complete()` is idempotent if and only if it's not already completed. Pure-domain drill.
+
+After each green: `just test`. When the use case is behaviourally complete, `just mutate` and kill surviving mutants.
+
+User reference: `tests/unit/application/test_create_user_use_case.py` (outer), `tests/unit/domain/test_email.py`, `test_user.py` (inner).
 
 ## 5. Infrastructure concretes
 
