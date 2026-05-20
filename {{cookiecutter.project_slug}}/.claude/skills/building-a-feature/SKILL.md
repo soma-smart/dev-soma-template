@@ -504,6 +504,7 @@ The `IdempotencyMiddleware` lets clients retry POST/PUT/PATCH/DELETE without dou
 - **No automatic cleanup** — ship a CronJob: `DELETE FROM idempotency_records WHERE expires_at < now() - interval '7 days'`.
 - **Streaming responses are not cached**.
 - **Per-process scoping** — the cache key is the bare `Idempotency-Key` string.
+- **Not exercisable via the e2e ``client`` fixture.** The middleware reads `app.state.session_factory` which is wired by the FastAPI lifespan; the e2e fixture deliberately bypasses the lifespan to avoid a real DB engine. So `tests/e2e/api/...` cannot verify replay semantics — they only confirm the endpoint routes correctly. The middleware itself is covered by `tests/integration/middleware/test_idempotency.py` (real Postgres via testcontainers). When you add a new write endpoint, do NOT write an e2e test that sends two requests with the same `Idempotency-Key` expecting the second to be replayed — the middleware will log `idempotency.no_session_factory` and pass through.
 
 ## Client-side patterns
 
