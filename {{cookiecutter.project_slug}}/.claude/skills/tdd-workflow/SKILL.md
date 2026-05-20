@@ -105,6 +105,55 @@ Each surviving mutant is a free hole. For each one:
 
 CI floor: 90% kill rate on `ci-mutation.yml`.
 
+### Kill the obvious survivors before reading the report
+
+Mutmut routinely flags the same three patterns whenever a new use case
+is wired up. Adding ~5 targeted tests **before** the first mutmut run
+gets the suite to ~90% naturally and lets the report focus on the real
+gaps. Pattern check-list for any new ``…UseCase``:
+
+1. **Boundary off-by-one on length / count checks.** For every
+   ``if len(x) > N`` (or ``>=``, ``<``, ``<=``), add one test at exactly
+   the boundary (``len(x) == N``) that confirms the OTHER side of the
+   inequality. Otherwise mutmut flips ``>`` to ``>=`` and survives.
+
+   ```python
+   async def test_given_name_exactly_255_chars_when_creating_then_succeeds(...):
+       # WHEN length == NAME_MAX_LENGTH, the use case must accept it.
+   ```
+
+2. **Context kwargs in ``raise DomainError(...)``.** Every
+   ``raise SomeError(key=value)`` mutates to ``raise SomeError(key=None)``
+   without changing observable behaviour from the test's
+   ``pytest.raises``. Catch them by asserting on ``.context[key]``:
+
+   ```python
+   with pytest.raises(InvalidTodoListNameError) as excinfo:
+       await use_case.execute(...)
+   assert excinfo.value.context["length"] == len(too_long_name)
+   ```
+
+   These mutations are semantically benign (the context only feeds the
+   structured log), but they count toward the kill rate. Choose
+   consistency: either assert systematically, or document that the
+   context kwargs are excluded from the kill-rate target — don't mix.
+
+3. **DTO Output fields.** Every ``return SomeOutput(field=value)``
+   mutates each ``field=value`` to ``field=None``. Add one assertion
+   per field on the return value, or one assertion that compares the
+   whole Output to a literal:
+
+   ```python
+   output = await use_case.execute(...)
+   assert output.id == persisted.id.value
+   assert output.name == "Shopping"
+   assert output.created_at == frozen_clock.now()
+   ```
+
+Run mutmut after these are in place. Real holes (e.g., a missing branch
+on the use case body) become much easier to spot in the report once
+the routine survivors are gone.
+
 ---
 
 ## Worked example — "create a todolist" (outside-in)
