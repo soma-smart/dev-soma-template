@@ -57,8 +57,10 @@ def upgrade() -> None:
         "UPDATE outbox_events SET status = 'published' WHERE published_at IS NOT NULL"
     )
     # Polling index — matches the WHERE clause of _select_due_rows.
+    # Name mirrors the auto-generated ``ix_<table>_<col1>_<col2>`` so
+    # autogenerate sees the model's ``__table_args__`` Index() as identical.
     op.create_index(
-        "ix_outbox_status_next_attempt",
+        "ix_outbox_events_status_next_attempt",
         "outbox_events",
         ["status", "next_attempt_at"],
     )
@@ -66,7 +68,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Drop the retry-state columns and the polling index."""
-    op.drop_index("ix_outbox_status_next_attempt", table_name="outbox_events")
+    op.drop_index("ix_outbox_events_status_next_attempt", table_name="outbox_events")
     op.drop_column("outbox_events", "status")
     op.drop_column("outbox_events", "last_error")
     op.drop_column("outbox_events", "next_attempt_at")

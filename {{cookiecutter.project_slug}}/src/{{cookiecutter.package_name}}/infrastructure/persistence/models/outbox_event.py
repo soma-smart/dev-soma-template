@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
-from sqlalchemy import JSON, DateTime, Integer, String, Text
+from sqlalchemy import JSON, DateTime, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from {{ cookiecutter.package_name }}.infrastructure.persistence.models.base import Base
@@ -45,10 +45,25 @@ class OutboxEventModel(Base):
     last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # No standalone ``index=True`` on ``status`` — Postgres can satisfy
+    # ``WHERE status = 'pending'`` from the composite index below (status is
+    # the leading column). Avoids autogenerate drift between a single-column
+    # ``ix_outbox_events_status`` and the composite.
     status: Mapped[OutboxStatus] = mapped_column(
         String(16),
         nullable=False,
         default="pending",
         server_default="pending",
-        index=True,
+    )
+
+    # Composite index matching the relay's polling ``WHERE`` clause:
+    # ``status='pending' AND next_attempt_at <= now()``. Declared explicitly
+    # so ``alembic revision --autogenerate`` reports no drift against the
+    # 0003 migration that originally created it.
+    __table_args__ = (
+        Index(
+            "ix_outbox_events_status_next_attempt",
+            "status",
+            "next_attempt_at",
+        ),
     )

@@ -31,9 +31,11 @@ def upgrade() -> None:
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("email", name="uq_users_email"),
     )
-    op.create_index("ix_users_email", "users", ["email"])
+    # ``UserModel.email`` declares ``unique=True, index=True`` which SQLAlchemy
+    # compiles to a single unique index (no separate constraint). The migration
+    # mirrors that so ``alembic revision --autogenerate`` reports no drift.
+    op.create_index("ix_users_email", "users", ["email"], unique=True)
 
 
 def downgrade() -> None:

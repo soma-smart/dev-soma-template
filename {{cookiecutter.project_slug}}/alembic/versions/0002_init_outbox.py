@@ -36,14 +36,18 @@ def upgrade() -> None:
         sa.Column("published_at", sa.DateTime(timezone=True), nullable=True),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index("ix_outbox_event_name", "outbox_events", ["event_name"])
-    op.create_index("ix_outbox_created_at", "outbox_events", ["created_at"])
-    op.create_index("ix_outbox_published_at", "outbox_events", ["published_at"])
+    # Index names match what SQLAlchemy auto-generates for
+    # ``Mapped[...] = mapped_column(..., index=True)`` on ``OutboxEventModel``
+    # (``ix_<tablename>_<column>``) so ``alembic revision --autogenerate``
+    # reports no drift on a freshly baked project.
+    op.create_index("ix_outbox_events_event_name", "outbox_events", ["event_name"])
+    op.create_index("ix_outbox_events_created_at", "outbox_events", ["created_at"])
+    op.create_index("ix_outbox_events_published_at", "outbox_events", ["published_at"])
 
 
 def downgrade() -> None:
     """Drop the ``outbox_events`` table and its indexes."""
-    op.drop_index("ix_outbox_published_at", table_name="outbox_events")
-    op.drop_index("ix_outbox_created_at", table_name="outbox_events")
-    op.drop_index("ix_outbox_event_name", table_name="outbox_events")
+    op.drop_index("ix_outbox_events_published_at", table_name="outbox_events")
+    op.drop_index("ix_outbox_events_created_at", table_name="outbox_events")
+    op.drop_index("ix_outbox_events_event_name", table_name="outbox_events")
     op.drop_table("outbox_events")

@@ -39,10 +39,11 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("key"),
     )
     # Lazy cleanup at lookup time: indexed for the WHERE expires_at < now() pass.
-    op.create_index("ix_idempotency_expires_at", "idempotency_records", ["expires_at"])
+    # Name matches ``ix_<table>_<col>`` auto-naming so autogenerate stays clean.
+    op.create_index("ix_idempotency_records_expires_at", "idempotency_records", ["expires_at"])
 
 
 def downgrade() -> None:
     """Drop the ``idempotency_records`` table and its index."""
-    op.drop_index("ix_idempotency_expires_at", table_name="idempotency_records")
+    op.drop_index("ix_idempotency_records_expires_at", table_name="idempotency_records")
     op.drop_table("idempotency_records")
