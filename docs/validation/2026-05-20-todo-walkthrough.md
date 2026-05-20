@@ -2,7 +2,7 @@
 
 - **Date** : 2026-05-20
 - **Auteur** : Vianney Bacoup (`hgaillard@soma-smart.com`)
-- **Statut** : Terminé (Phase 3 abandonnée — assez de signal collecté)
+- **Statut** : Terminé. Phases 1 et 2 exécutées intégralement ; Phase 3 (auth) a été re-lancée plus tard en scope ciblé après que le user a demandé une validation de la skill `adding-auth`.
 - **Objectif** : Valider la configuration trimée du template (9 skills, 0 sub-agent) en construisant 3 features TodoList. Output principal = liste des frictions observées + propositions d'itération sur les skills.
 
 ---
@@ -112,11 +112,40 @@ L'objectif n'est PAS la livraison de TodoList. C'est de soumettre les skills à 
 
 ---
 
-## Phase 3 — Auth + scoping (ABANDONNÉE)
+## Phase 3 — Auth + scoping (RÉ-OUVERTE 2026-05-20 soir)
 
-**Décision 2026-05-20** : phase 3 non exécutée. Phases 1 et 2 ont déjà produit **18 frictions documentées** et validé l'essentiel des skills (`building-a-feature`, `tdd-workflow`, `writing-domain-code`, `database-and-migrations`). Phase 3 aurait testé principalement la skill `adding-auth` (intacte jusqu'ici). Ratio temps/signal jugé défavorable — mieux capitaliser sur les frictions existantes via un PR template avant de continuer.
+**Décision initiale** : Phase 3 abandonnée pour capitaliser sur les frictions Phase 1+2. **Décision revue** : le user a demandé une validation de la skill `adding-auth` ; scope re-resserré sur "ajouter l'auth + ownership scoping sur les 3 endpoints TodoList existants".
 
-Si la skill `adding-auth` doit être validée séparément, un walkthrough auth-focused court (un seul use case : "list mine only") suffirait — pas besoin de refaire tout le flow.
+### Scope exécuté
+
+- **Refactor** : `AddTodoItemInput` et `ToggleTodoItemInput` gagnent un champ `caller_id: UserId`. `CreateTodoListInput` inchangé.
+- **Use cases** : check ownership ajouté dans `AddTodoItem` et `ToggleTodoItem` (`if todo_list.owner_id != input.caller_id: raise TodoListNotFoundError(...)` — 404 uniforme).
+- **Routes** : tous les 3 endpoints gagnent `Depends(get_current_user)`. `POST /v1/todo-lists` perd le champ `owner_id` du body (extrait du JWT). Les 2 endpoints d'item extraient `caller_id` du JWT subject.
+- **Schemas** : `TodoListCreateSchema` perd le champ `owner_id`.
+- **Tests** : 21 unit tests AddItem + ToggleItem refactored pour passer `caller_id`. +2 tests d'ownership (caller != owner → 404). +3 tests e2e (auth missing → 401, ownership 404).
+
+### Critères de succès Phase 3
+
+- [x] **142 tests verts** (101 Phase 1 + 36 Phase 2 + 5 nouveaux Phase 3 — auth + ownership)
+- [x] Skill `adding-auth` lue + appliquée : pattern `Depends(get_current_user)` + `FakeTokenVerifier.accept(token, subject=...)` en e2e — flow fluide
+- [x] Multi-tenancy 404-uniforme (pas de leak d'existence)
+- [x] Domaine pur préservé (aucun import auth dans `domain/`)
+
+### Frictions observées Phase 3
+
+19. **Code des `DomainError` auth pas explicité dans la skill** — j'ai assumé `MISSING_TOKEN` comme code dans les tests, mais c'est `AUTH_MISSING_TOKEN` (avec le préfixe `AUTH_`). Pareil pour `AUTH_INVALID_TOKEN`. La skill `adding-auth` montre la classe (`MissingTokenError`) mais pas le `code` SCREAMING_SNAKE. Reco : ajouter une mini-table "Exception class → HTTP status → code" dans la skill.
+
+20. **Cast `UUID(current_user.subject)` non couvert** — quand le `sub` claim n'est pas un UUID valide, `UUID(...)` raise un `ValueError` au route layer qui devient un 500. Pas de skill ne mentionne cette friction. Pour SOMA, deux options : (a) catcher le ValueError et raise `InvalidTokenError` ; (b) documenter dans `adding-auth` que les projets qui mappent `subject → UserId` doivent ajouter ce safety. Reco : documenter.
+
+21. **DTO refactor mécanique non-trivial** — ajouter `caller_id` à 2 DTOs a forcé 30+ test edits. Le pattern "constante `_OWNER` au module level + `replace_all` sur le call de `Input(...)`" marche mais est verbeux. La skill `building-a-feature` pourrait mentionner cette technique pour les refactors auth post-coup.
+
+### Positives Phase 3
+
+22. **Fixture `FakeTokenVerifier` parfaitement adaptée** — `verifier.accept(token, subject=...)` + header `Authorization: Bearer <token>` est concis et lisible. Aucune friction de boilerplate.
+
+23. **Mapping HTTP shippé dans le template** — `ERROR_HTTP_MAPPING` contient déjà `MissingTokenError → 401`, `InvalidTokenError → 401`, `InsufficientPermissionsError → 403`. Rien à ajouter pour les 3 endpoints.
+
+24. **CurrentUser comme `ValueObject` immutable** — propre, frozen dataclass, conforme aux conventions SOMA. Pas de friction.
 
 ---
 

@@ -28,6 +28,20 @@ Files involved:
 | presentation | `presentation/api/dependencies/auth.py` | `get_bearer_token`, `get_current_user`, `get_current_user_optional`, `require_roles` |
 | presentation | `presentation/api/v1/auth.py` | Reference endpoint `GET /v1/auth/whoami` |
 
+### Exception codes (assert these in e2e tests)
+
+The class names use `…Error`; the `code` ClassVar that lands in
+`response.json()["error"]["code"]` is prefixed with `AUTH_`:
+
+| Exception class | `code` | HTTP |
+|---|---|---|
+| `MissingTokenError` | `AUTH_MISSING_TOKEN` | 401 |
+| `InvalidTokenError` | `AUTH_INVALID_TOKEN` | 401 |
+| `InsufficientPermissionsError` | `AUTH_INSUFFICIENT_PERMISSIONS` | 403 |
+
+E2E tests should assert on the `AUTH_*` value (the contract clients
+deserialize), not the class name (Python-only).
+
 ## Protecting a route
 
 ### Authentication only
@@ -106,6 +120,38 @@ AUTH_JWT_ROLES_CLAIM=realm_access.roles    # Keycloak
 `AUTH_JWT_SECRET` becomes unused under RS256 — the public keys are fetched from the JWKS URL and cached by `PyJWKClient`.
 
 For a more invasive swap (mTLS, opaque tokens, IdP introspection endpoint), edit `infrastructure/auth/jwt_verifier.py` or replace it with a different binding in `infrastructure/container.build_token_verifier`. The `TokenVerifier` protocol is the only seam — nothing else changes.
+
+## Mapping ``current_user.subject`` to a domain identifier
+
+`CurrentUser.subject` is the raw IdP ``sub`` claim — a string, no type
+guarantee. Projects that use it as a domain identifier (e.g. converting
+to ``UserId`` for an ownership check) must cast safely, because a
+malformed claim raises in route code and becomes a 500:
+
+```python
+# ❌ Crashes with 500 on a non-UUID subject
+caller_id = UserId(UUID(current_user.subject))
+```
+
+Two clean options:
+
+1. **Trust the IdP** — if the IdP guarantees ``sub`` is a UUID (Keycloak,
+   Auth0 with a custom user-id claim, …), do the cast in the route and
+   document that contract in the dependency wiring.
+
+2. **Validate at the boundary** — wrap the cast in a try/except and
+   raise ``InvalidTokenError`` on failure:
+
+   ```python
+   try:
+       caller_id = UserId(UUID(current_user.subject))
+   except ValueError as exc:
+       raise InvalidTokenError(reason="non_uuid_subject") from exc
+   ```
+
+The second option is safer when the IdP is third-party-controlled (or
+during a swap). Pick one and apply it consistently — mixing leads to
+inconsistent error codes for the same root cause.
 
 ## Tests
 
