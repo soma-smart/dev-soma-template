@@ -73,6 +73,12 @@ Pick 4-6 questions. Ask them in a numbered list. The user answers in one message
 
 After the user answers, produce a one-page plan with exactly these five sections.
 
+> ⚠ **The "Tests that will be written" section is at use case (behavioural) level ONLY.** Adding bullets like "the `Name` VO rejects blank entries" or a "Domain (drill)" subsection is a leak — it pre-decides where validation lives (VO `__post_init__` vs entity factory vs use case body). That defeats outside-in TDD. The domain structure must emerge from the failing use case tests during the build, not be sketched in the plan.
+>
+> Bad: ❌ *"The `name` VO rejects blank or whitespace-only entries"*
+>
+> Good: ✅ *"GIVEN a blank name, WHEN creating, THEN the use case raises a validation error"*
+
 ### 1. Tests that will be written
 Behavioural cases expressed in GIVEN/WHEN/THEN at the use case level. One bullet per branch the user cares about. Example:
 - *GIVEN an authenticated user with no list, WHEN they create one with a valid name, THEN the list is persisted and a `todo_list.created` event is emitted.*
