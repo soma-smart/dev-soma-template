@@ -157,10 +157,26 @@ exclude_lines = [
 ]
 
 # ─── mutmut ────────────────────────────────────────────────────────────
+# Mutmut 3.5+ requires LIST values, not strings, for paths_to_mutate and
+# tests_dir. Without ``also_copy``, mutmut tries to clone "/sys/class/powercap"
+# and other unrelated paths, producing FileNotFoundError on Linux hosts.
 [tool.mutmut]
-paths_to_mutate = "src/{{ cookiecutter.package_name }}/domain,src/{{ cookiecutter.package_name }}/application"
+paths_to_mutate = [
+    "src/{{ cookiecutter.package_name }}/domain",
+    "src/{{ cookiecutter.package_name }}/application",
+]
+also_copy = [
+    "src/{{ cookiecutter.package_name }}/infrastructure",
+    "src/{{ cookiecutter.package_name }}/presentation",
+    "src/{{ cookiecutter.package_name }}/__init__.py",
+    "tests",
+    "pyproject.toml",
+    "uv.lock",
+    "alembic",
+    "alembic.ini",
+]
 runner = "uv run pytest -m unit -x -q"
-tests_dir = "tests/unit"
+tests_dir = ["tests/unit"]
 
 # ─── Commitizen ────────────────────────────────────────────────────────
 [tool.commitizen]
