@@ -10,7 +10,9 @@ Cette liste regroupe toutes les actions identifiées pendant le walkthrough qui 
 
 ## P0 — Bugs template critiques (à fixer avant prochain usage SOMA réel)
 
-### 1. Config `[tool.mutmut]` invalide
+**Statut 2026-05-20 (après-midi)** : tous les P0 ont été fixés directement dans la branche `rework`. Les sections ci-dessous gardent le diagnostic pour traçabilité, et chaque item porte ✅ + le SHA du commit de fix.
+
+### 1. ✅ Config `[tool.mutmut]` invalide
 - **Fichier** : `{{cookiecutter.project_slug}}/pyproject.toml`
 - **Problème** : `paths_to_mutate` et `tests_dir` sont des strings, mutmut 3.5+ exige des listes. Le `also_copy` manque, donc mutmut tente de copier `/sys/class/powercap/intel-rapl:1` (chemin du kernel powercap) et plante.
 - **Bug récurrent** : déjà observé lors du walkthrough précédent du 2026-05-12. Toujours pas fixé.
@@ -32,7 +34,9 @@ Cette liste regroupe toutes les actions identifiées pendant le walkthrough qui 
   tests_dir = ["tests/unit"]
   ```
 
-### 2. `models/__init__.py` ne register pas tous les modèles
+**Fix appliqué (commit `17579f2`)**.
+
+### 2. ✅ `models/__init__.py` ne register pas tous les modèles
 - **Fichier** : `{{cookiecutter.project_slug}}/src/{{cookiecutter.package_name}}/infrastructure/persistence/models/__init__.py`
 - **Problème** : Le fichier n'importe que `Base`. Les modèles concrets (`UserModel`, `OutboxEventModel`, `IdempotencyRecord`) ne sont chargés "par accident" que via les imports des repositories. Conséquence : quand un nouveau modèle apparaît sans repository, `alembic revision --autogenerate` ne le voit pas. Pire, l'import manuel d'**un seul** nouveau modèle fait apparaître les autres comme "supprimés" → migration destructrice.
 - **Fix** : importer tous les modèles dès le bake initial, avec `# noqa: F401` :
@@ -50,14 +54,18 @@ Cette liste regroupe toutes les actions identifiées pendant le walkthrough qui 
   ```
   Documenter dans le commentaire du module qu'**EVERY new model must be added here**.
 
-### 3. Drift modèles ↔ migrations existantes
+**Fix appliqué (commit `71c5c34`)**.
+
+### 3. ✅ Drift modèles ↔ migrations existantes
 - **Fichiers** :
   - `{{cookiecutter.project_slug}}/alembic/versions/0001_init_users.py` (lignes `create_unique_constraint` + `create_index` séparés pour `email`)
   - `{{cookiecutter.project_slug}}/alembic/versions/0002_init_outbox.py` (noms d'index `ix_outbox_*` vs ce que SQLAlchemy autogenererait `ix_outbox_events_*`)
 - **Problème** : autogenerate détecte une différence permanente entre ce que les modèles déclarent et ce que les migrations existantes ont créé. Toute future migration aura du bruit (drops + creates parasites) à nettoyer manuellement.
 - **Fix** : aligner les migrations sur ce que les modèles produisent par défaut. Le test `ci-migration-drift.yml` devrait être ajouté ou activé pour détecter ce drift.
 
-### 4. `just lint` échoue sur projet baké à J+0
+**Fix appliqué (commit `0cf2a07`)**. Autogenerate sur projet baké frais produit désormais un migration vide.
+
+### 4. ✅ `just lint` échoue sur projet baké à J+0
 - **Fichiers concernés** : `infrastructure/auth/dev_token.py`, `infrastructure/auth/jwt_verifier.py`, `infrastructure/jobs/backoff.py`, `tests/integration/conftest.py`, `tests/integration/infrastructure/auth/test_jwt_verifier.py`, `tests/integration/jobs/test_outbox_relay.py`, `tests/integration/middleware/test_idempotency.py`, `tests/unit/application/test_create_user_use_case.py`, `tests/unit/presentation/test_auth_dependencies.py`, `tests/e2e/api/test_health_endpoints.py`.
 - **Problème** : 20 erreurs lint (S106 mots `token`/`secret` dans args de test, B008 default arg=`Field`, D101/D102 docstrings manquants). Un nouveau projet SOMA ne passe pas son propre lint dès le `git init`.
 - **Fix** : soit corriger les erreurs (préférable), soit étendre `[tool.ruff.lint.per-file-ignores]` :
@@ -67,12 +75,16 @@ Cette liste regroupe toutes les actions identifiées pendant le walkthrough qui 
   ```
   Approche raisonnable : ignorer S106 et la plupart des D* sur `tests/**`, fixer les vraies erreurs dans `infrastructure/`.
 
-### 5. Devcontainer mount stale après bake successif
+**Fix appliqué (commit `a5bad00`)**. Per-file-ignores étendus pour les tests + 4 corrections source (jwt_verifier, backoff, dev_token, idempotency middleware).
+
+### 5. ✅ Devcontainer mount stale après bake successif
 - **Fichier** : `{{cookiecutter.project_slug}}/.devcontainer/post-up.sh` ou nouveau script `down.sh`
 - **Problème** : après un premier bake + `docker compose up`, un deuxième bake vers un autre `/tmp` réutilise les conteneurs Docker existants avec le mount du précédent workspace → `chdir /workspaces/<slug>: no such file or directory`.
 - **Fix** : documenter (README ou runbook) que `docker compose down -v` doit précéder tout nouveau bake quand on travaille via plain `docker compose` plutôt que le devcontainer CLI. Alternativement, ajouter une recette `just devcontainer-reset` qui fait le `down -v` + `up -d --build` proprement.
 
 ---
+
+**Fix appliqué (commit `be438e4`)**. Nouvelle recette `just devcontainer-reset`.
 
 ## P1 — Améliorations skills
 
@@ -118,12 +130,14 @@ Cette liste regroupe toutes les actions identifiées pendant le walkthrough qui 
 
 ### P0 nouveaux
 
-### 11. Idempotency middleware non-testable en e2e
+### 11. ✅ Idempotency middleware non-testable en e2e
 - **Fichier** : `{{cookiecutter.project_slug}}/.claude/skills/building-a-feature/SKILL.md` § Idempotency + `{{cookiecutter.project_slug}}/tests/e2e/conftest.py`
 - **Problème** : `IdempotencyMiddleware` lit `app.state.session_factory` qui est setté par le FastAPI lifespan. Le fixture `client` en e2e bypasse le lifespan exprès (pour éviter un vrai DB engine + instrumentation OTel). Conséquence : impossible d'écrire un test e2e qui démontre `Idempotency-Key` replay — le middleware log `idempotency.no_session_factory` et by-pass.
 - **Fix** : deux options :
   - (a) **Documenter** dans la skill que l'idempotency replay est validé via `tests/integration/middleware/test_idempotency.py` (real PG via testcontainers), pas via les e2e endpoint-par-endpoint. Le rôle des e2e reste "wiring + status codes", pas "feature complète du middleware".
   - (b) **Ajouter un fixture** `app_with_real_session` qui démarre le lifespan + pointe sur un testcontainer Postgres, pour les rares tests e2e qui doivent traverser le middleware. Plus complexe, peut-être overkill.
+
+**Fix appliqué (commit `c115663`)**. Limitation documentée dans § Idempotency de la skill.
 
 ### P1 nouveaux
 
