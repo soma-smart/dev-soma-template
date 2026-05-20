@@ -247,7 +247,7 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
                 media_type="application/json",
             )
 
-    async def _complete(
+    async def _complete(  # noqa: PLR0913 — every kw is part of one cached HTTP response
         self,
         factory: Any,
         *,

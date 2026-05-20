@@ -36,7 +36,7 @@ from {{ cookiecutter.package_name }}.domain.exceptions.auth import InvalidTokenE
 class JwtTokenVerifier:
     """Verify a bearer JWT and project it onto ``CurrentUser``."""
 
-    def __init__(
+    def __init__(  # noqa: PLR0913 — every kw flows from Settings.auth_jwt_*
         self,
         *,
         algorithm: str,
@@ -95,7 +95,10 @@ class JwtTokenVerifier:
                 options={"require": ["sub", "exp"]},
             )
         # RS256
-        assert self._jwks_client is not None
+        # ``__init__`` guarantees jwks_url is set for RS256; the assert is a
+        # defensive check for the type narrower (``PyJWKClient | None``).
+        if self._jwks_client is None:  # pragma: no cover
+            raise InvalidTokenError(reason="jwks_client_missing")
         signing_key = self._jwks_client.get_signing_key_from_jwt(token).key
         return jwt.decode(
             token,

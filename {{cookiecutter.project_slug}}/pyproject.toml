@@ -104,9 +104,12 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "ANN", "D", "PLR2004", "ARG"]
+"tests/**" = ["S101", "S105", "S106", "ANN", "D", "PLR2004", "ARG", "PLR0913"]
 "alembic/versions/*" = ["D", "ERA"]
 "scripts/**" = ["T20"]
+# dev-token is a CLI tool that legitimately prints a freshly minted token
+# to stdout — T201 (no-print) is wrong for this single file.
+"src/{{ cookiecutter.package_name }}/infrastructure/auth/dev_token.py" = ["T20"]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 # Cross-layer imports are forbidden by Clean Architecture.

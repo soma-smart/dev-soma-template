@@ -16,7 +16,7 @@ import pytest
 from {{ cookiecutter.package_name }}.domain.exceptions.auth import InvalidTokenError
 from {{ cookiecutter.package_name }}.infrastructure.auth.jwt_verifier import JwtTokenVerifier
 
-SECRET = "test-secret-do-not-use-in-prod"  # noqa: S105
+SECRET = "test-secret-do-not-use-in-prod"
 
 
 def _sign(payload: dict[str, Any], *, secret: str = SECRET) -> str:

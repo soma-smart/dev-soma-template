@@ -26,7 +26,7 @@ from {{ cookiecutter.package_name }}.infrastructure.persistence.models.outbox_ev
 
 
 @pytest.fixture
-def isolated_handlers() -> "list[str]":
+def isolated_handlers() -> list[str]:
     """Snapshot the handler registry, yield, restore.
 
     The integration tests register their own handlers; we restore the
@@ -80,7 +80,7 @@ async def test_given_handler_raises_when_draining_then_row_stays_pending_with_at
 ) -> None:
     # GIVEN
     @handler("user.created")
-    async def boom(payload: dict) -> None:  # noqa: ARG001
+    async def boom(payload: dict) -> None:
         raise RuntimeError("downstream outage")
 
     row = OutboxEventModel(
@@ -228,7 +228,7 @@ async def test_given_row_reaches_max_attempts_when_handler_fails_then_row_is_poi
 ) -> None:
     # GIVEN
     @handler("user.created")
-    async def boom(payload: dict) -> None:  # noqa: ARG001
+    async def boom(payload: dict) -> None:
         raise RuntimeError("permanently broken")
 
     row = OutboxEventModel(

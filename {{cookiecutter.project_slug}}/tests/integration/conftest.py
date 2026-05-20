@@ -37,7 +37,7 @@ def pg_url() -> Iterator[str]:
     try:
         container = PostgresContainer("postgres:17")
         container.start()
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         pytest.skip(f"Docker daemon not reachable; integration tests skipped: {exc}")
     try:
         sync_url = container.get_connection_url()

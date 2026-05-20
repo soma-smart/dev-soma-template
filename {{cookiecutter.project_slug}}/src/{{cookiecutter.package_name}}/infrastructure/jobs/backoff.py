@@ -11,7 +11,7 @@ Schedule:
     after 7+ failures → wait 1 hour (capped)
     after MAX_ATTEMPTS failures → row is poisoned, no further retries
 
-Total elapsed time before poison ≈ 1 + 5 + 30 + 120 + 600 + 1800 + 3600 ×
+Total elapsed time before poison ≈ 1 + 5 + 30 + 120 + 600 + 1800 + 3600 x
 (MAX_ATTEMPTS - 7) ≈ 3 hours at MAX_ATTEMPTS=10. Tune by editing this file.
 """
 

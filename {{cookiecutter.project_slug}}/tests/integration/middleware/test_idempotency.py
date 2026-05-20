@@ -64,7 +64,7 @@ def app(session_factory: async_sessionmaker[AsyncSession], calls: list[str]) -> 
     app.add_middleware(IdempotencyMiddleware, methods=frozenset({"POST"}), ttl_seconds=3600)
 
     @app.post("/echo")
-    async def echo(payload: dict) -> dict:  # noqa: ANN001
+    async def echo(payload: dict) -> dict:
         calls.append("echo")
         return {"received": payload, "call_number": len(calls)}
 
