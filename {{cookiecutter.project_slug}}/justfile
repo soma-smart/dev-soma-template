@@ -90,6 +90,15 @@ migrate-down:
 docker-build:
     docker build --target runtime -t app:dev .
 
+# Bring the local devcontainer stack down (volumes included) and back up
+# with a fresh build. Use this when you suspect the running containers
+# hold a stale workspace mount or postgres-data volume — typical after
+# re-baking the project into the same path or moving the project directory.
+# The standard VSCode "Reopen in Container" workflow does NOT need this.
+devcontainer-reset:
+    docker compose -f .devcontainer/docker-compose.yml down -v
+    docker compose -f .devcontainer/docker-compose.yml up -d --build
+
 {% raw %}# Render the chart with a chosen environment overlay (default: prod).
 # Example: just helm-render dev
 helm-render env="prod":
