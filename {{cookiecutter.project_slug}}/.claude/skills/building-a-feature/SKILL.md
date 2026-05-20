@@ -255,6 +255,80 @@ async def add(self, todo_list: TodoList, /) -> None:
         raise TodoListAlreadyExistsError(...) from exc
 ```
 
+### Aggregates with nested children (e.g. TodoList → TodoItem[])
+
+When the aggregate root owns a collection of child entities, the
+persistence pattern needs three pieces:
+
+**1. Relationship on the ORM root**, with cascade + eager loading and
+the column to sort children by:
+
+```python
+class TodoListModel(Base):
+    ...
+    items: Mapped[list[TodoItemModel]] = relationship(
+        back_populates="todo_list",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by="TodoItemModel.position",
+    )
+```
+
+`cascade="all, delete-orphan"` makes a removed child in the domain
+collection translate to a DELETE on the row. `lazy="selectin"` triggers
+a second query at access time, but it's batched (no N+1).
+
+**2. `find_by_id` eager-loads** the children explicitly so the use case
+gets the whole aggregate in one call:
+
+```python
+async def find_by_id(self, id: TodoListId) -> TodoList | None:
+    stmt = (
+        select(TodoListModel)
+        .where(TodoListModel.id == id.value)
+        .options(selectinload(TodoListModel.items))
+    )
+    model = (await self._session.execute(stmt)).scalar_one_or_none()
+    return self._to_entity(model) if model is not None else None
+```
+
+**3. A `save(aggregate)` method on the repository** that reconciles the
+domain entity with its stored representation — new children get
+inserted, existing children get updated, the rest is handled by
+cascade. The use case calls `await repo.save(todo_list)` after any
+mutation:
+
+```python
+async def save(self, todo_list: TodoList) -> None:
+    stmt = (
+        select(TodoListModel)
+        .where(TodoListModel.id == todo_list.id.value)
+        .options(selectinload(TodoListModel.items))
+    )
+    model = (await self._session.execute(stmt)).scalar_one()
+    # Update root-level fields the domain entity exposes.
+    model.name = todo_list.name
+    model.description = todo_list.description
+    model.deleted_at = todo_list.deleted_at
+
+    # Diff children: insert new, update existing.
+    existing_by_id = {item.id: item for item in model.items}
+    for domain_item in todo_list.items:
+        existing = existing_by_id.get(domain_item.id.value)
+        if existing is None:
+            model.items.append(self._item_to_model(domain_item))
+        else:
+            existing.name = domain_item.name
+            existing.description = domain_item.description
+            existing.position = domain_item.position
+            existing.completed_at = domain_item.completed_at
+    await self._session.flush()
+```
+
+The `save` method is added to the Protocol; the Fake repository
+implements it as a no-op (or a rebind) since its dict-based storage
+already reflects in-memory mutations by reference.
+
 ---
 
 ## 7. Route TDD (e2e test)
