@@ -22,7 +22,7 @@ when_to_use: User asks for a review; about to comment on a PR; running a final s
 * [ ] No `logger.*` or `print` inside `domain/` or `application/`. Business events flow through typed `DomainError` / `AuditLog`.
 * [ ] No `infrastructure/...` import from `presentation/...`. Concretes flow in via `Depends` against the abstractions.
 * [ ] No HTTP types (`HTTPException`, `Response`, …) in `application/`.
-* [ ] Naming follows `naming-conventions` — no `Manager` / `Helper` / `Service` / `Util`; role stereotype used; `<Subject><Verb>Error` for exceptions.
+* [ ] Naming follows `onboarding-soma` § "Naming conventions" — no `Manager` / `Helper` / `Service` / `Util`; role stereotype used; `<Subject><Verb>Error` for exceptions.
 
 ## Base classes (when new code is added)
 
@@ -36,7 +36,7 @@ when_to_use: User asks for a review; about to comment on a PR; running a final s
 
 ## Abstractions (when a new one is introduced)
 
-* [ ] Author ran the `adding-a-new-abstraction` table — no existing abstraction covers this need.
+* [ ] Author ran the `building-a-feature` § "Adding a new abstraction" table — no existing abstraction covers this need.
 * [ ] Class name uses a role stereotype (`…Sender`, `…Gateway`, `…Cache`, …), not `Port`.
 * [ ] Abstract lives in `application/`; production binding in `infrastructure/`; Fake in `tests/fakes/`; conftest fixture registered if reused.
 

@@ -59,23 +59,30 @@ def test_given_default_inputs_when_baking_then_creates_expected_layout(cookies) 
     assert (project / "docs" / "runbooks" / "backups-and-restore.md").is_file()
     assert (project / "docs" / "runbooks" / "disaster-recovery.md").is_file()
     assert (project / "docs" / "runbooks" / "verification-log.md").is_file()
-    assert (project / ".claude" / "skills").is_dir()
-    assert (project / ".claude" / "skills" / "incident-response" / "SKILL.md").is_file()
-    assert (project / ".claude" / "skills" / "orchestrating-feature-dev" / "SKILL.md").is_file()
+    skills_dir = project / ".claude" / "skills"
+    assert skills_dir.is_dir()
+    expected_skills = {
+        "onboarding-soma",
+        "tdd-workflow",
+        "building-a-feature",
+        "writing-domain-code",
+        "database-and-migrations",
+        "adding-auth",
+        "event-sourcing-pattern",
+        "writing-a-helm-change",
+        "reviewing-a-pr-soma-style",
+    }
+    actual_skills = {p.name for p in skills_dir.iterdir() if p.is_dir()}
+    assert actual_skills == expected_skills, (
+        f"skill inventory drift: missing={expected_skills - actual_skills}, "
+        f"unexpected={actual_skills - expected_skills}"
+    )
+    for skill_name in expected_skills:
+        assert (skills_dir / skill_name / "SKILL.md").is_file(), f"missing SKILL.md in {skill_name}"
     agents_dir = project / ".claude" / "agents"
-    assert agents_dir.is_dir()
-    for agent_file in (
-        "soma-unit-test-writer.md",
-        "soma-integration-test-writer.md",
-        "soma-migration-writer.md",
-        "soma-helm-engineer.md",
-        "soma-event-sourcing-bootstrapper.md",
-        "soma-use-case-builder.md",
-        "soma-persistence-builder.md",
-        "soma-route-builder.md",
-    ):
-        assert (agents_dir / agent_file).is_file(), f"missing agent {agent_file}"
-    assert (project / ".claude" / "skills" / "event-sourcing-pattern" / "SKILL.md").is_file()
+    if agents_dir.exists():
+        agent_files = [p for p in agents_dir.iterdir() if p.is_file() and p.suffix == ".md"]
+        assert agent_files == [], f"no sub-agents should ship with the template, found: {agent_files}"
     assert (project / "helm" / "acme-service" / "Chart.yaml").is_file()
     assert (project / ".devcontainer" / "devcontainer.json").is_file()
     post_up = project / ".devcontainer" / "post-up.sh"

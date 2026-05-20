@@ -24,15 +24,15 @@ emit() {
 if echo "$PROMPT" | grep -Eq "(migration|alembic|schema change|new table)"; then
   emit "Reminder: use the database-and-migrations skill. Always read the autogenerate output, ensure downgrade() is non-empty, and add a round-trip migration test."
 elif echo "$PROMPT" | grep -Eq "(new endpoint|add a feature|new use case|new api|create.*endpoint)"; then
-  emit "Reminder: use the adding-a-use-case skill, paired with tdd-workflow (failing test first). The reference feature is examples/feature_user_signup/."
+  emit "Reminder: use the building-a-feature skill, paired with tdd-workflow (failing test first). It walks plan -> use case -> persistence -> route -> wiring. The reference feature is the User signup flow."
 elif echo "$PROMPT" | grep -Eq "(fix|bug|regression)"; then
   emit "Reminder: use the tdd-workflow skill. Write a failing unit test that reproduces the bug before changing production code."
 elif echo "$PROMPT" | grep -Eq "(domain error|new error|exception)"; then
-  emit "Reminder: use the adding-a-domain-exception skill. New DomainError subclasses MUST be registered in presentation/api/error_handlers.py::ERROR_HTTP_MAPPING."
+  emit "Reminder: use the writing-domain-code skill (exceptions section). New DomainError subclasses MUST be registered in presentation/api/error_handlers.py::ERROR_HTTP_MAPPING."
 elif echo "$PROMPT" | grep -Eq "(helm|chart|deployment)"; then
   emit "Reminder: use the writing-a-helm-change skill. Verify with helm lint + helm template -f values-prod.yaml | kubeconform."
 elif echo "$PROMPT" | grep -Eq "(test|tdd|mutation)"; then
-  emit "Reminder: use the writing-tests skill. Unit tests use Fakes only (zero mocks); GIVEN/WHEN/THEN naming and body. E2E: 1 happy + 1 critical error per endpoint, do not duplicate use case branches."
+  emit "Reminder: use the tdd-workflow skill. Unit tests use Fakes only (zero mocks); GIVEN/WHEN/THEN naming and body. E2E: 1 happy + 1 critical error per endpoint, do not duplicate use case branches."
 fi
 
 exit 0

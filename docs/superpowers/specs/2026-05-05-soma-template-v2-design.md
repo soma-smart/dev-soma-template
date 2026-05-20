@@ -879,24 +879,25 @@ Routeur vers les skills, court (< 200 lignes). Structure :
 
 ## 18. Skills livrées dans `.claude/skills/`
 
-14 skills, chacune dans son dossier avec `SKILL.md` (frontmatter `name`, `description`, `when_to_use`) :
+**Décision 2026-05-19** : passage de 20 skills + 8 sub-agents à **9 skills + 0 sub-agent**. Le main agent exécute le flow complet end-to-end, guidé par les skills. Cette consolidation supprime la friction du dispatch sub-agent (briefs à écrire, black-box logs, double-dispatch enricher) et bundle les références techniques étroitement liées dans une "manuel SOMA" cohérent.
 
-| Skill | Trigger |
-|---|---|
-| `onboarding-soma` | session vierge, prompt sur la structure du projet |
-| `clean-architecture-layers` | quand on parle de "where to put", "which layer", "import" |
-| `writing-domain-code` | édition dans `src/<pkg>/domain/` |
-| `tdd-workflow` | "feature", "fix", "use case", "bug" |
-| `adding-a-use-case` | "add a use case", "new endpoint" |
-| `adding-a-domain-exception` | "new error", "exception" |
-| `writing-tests` | édition dans `tests/`, ou prompt "write a test" |
-| `writing-a-fake` | édition dans `tests/fakes/` |
-| `using-the-di-container` | édition `infrastructure/container.py` ou `presentation/api/dependencies/` |
-| `database-and-migrations` | "migration", "schema", "alembic" |
-| `observability-patterns` | "logging", "tracing", "metrics", édition `infrastructure/observability/` |
-| `naming-conventions` | toute création de classe/fonction/module |
-| `writing-a-helm-change` | édition dans `helm/` |
-| `reviewing-a-pr-soma-style` | "review", "PR" |
+Voir §24 pour le historique de la décision.
+
+9 skills, chacune dans son dossier avec `SKILL.md` (frontmatter `name`, `description`, `when_to_use`) :
+
+| Skill | Rôle | Trigger |
+|---|---|---|
+| `onboarding-soma` | **Le manuel SOMA** — layers, naming, DI, observability, file placement | First session, "where does X go?", naming, DI, observability, layer questions |
+| `tdd-workflow` | Outside-in TDD + Fakes + GIVEN/WHEN/THEN + mutation | "feature", "fix", "test", édition dans `tests/` |
+| `building-a-feature` | Runbook end-to-end : plan → use case → persistence → route → wiring. Inclut "adding a new abstraction", "transactions and events", "idempotency" | "new feature", "new use case", "new endpoint" |
+| `writing-domain-code` | Domain purity + entities + value objects + domain exceptions (avec mapping HTTP) | Édition dans `src/<pkg>/domain/`, nouvelle `DomainError` |
+| `database-and-migrations` | Alembic, schema, repositories | "migration", "schema", "alembic" |
+| `adding-auth` | JWT + role guard | "protect a route", "401/403" |
+| `event-sourcing-pattern` | Décision ES vs CRUD + scaffolding lite-ES | "event-source X", audit, time-travel |
+| `writing-a-helm-change` | Chart edits + lint + kubeconform | Édition dans `helm/` |
+| `reviewing-a-pr-soma-style` | PR review checklist | "review this PR" |
+
+**Sub-agents : zéro.** Le main agent dispatche `pr-review-toolkit:*` (Anthropic built-in) pour les reviews ; tout le reste est exécuté en direct.
 
 ---
 
@@ -1041,13 +1042,19 @@ L'implémentation détaillée vit dans le **plan** qui suit ce spec (skill `writ
 12. **Dockerfile prod** + **devcontainer** (Dockerfile + docker-compose + devcontainer.json)
 13. **Helm chart** complet
 14. **CI workflows** : quality, security, mutation, helm, conventional-commits, release
-15. **Claude integration** : `CLAUDE.md`, `.claude/settings.json`, `.claude/hooks/`, 13 skills
+15. **Claude integration** : `CLAUDE.md`, `.claude/settings.json`, `.claude/hooks/`, 9 skills, 0 sub-agent (décision 2026-05-19, cf. §18 et §24)
 16. **Docs** : `README.md`, `docs/architecture.md`, ADRs (3 livrés)
 17. **Tests du template** (pytest-cookies) : 3 combos × bake + ruff/ty/pytest
 
 ---
 
 ## 24. Décisions à figer plus tard (parking)
+
+### Résolues
+
+- **2026-05-19 — Skill/agent inventory : 9 skills + 0 sub-agent** (anciennement 20 skills + 8 sub-agents). Trim agressif après le walkthrough TodoList de validation. Le walkthrough a révélé : (1) les sub-agents feature-level (use-case/persistence/route) ajoutaient de la ceremony sans gain — black-box logs, briefs à écrire, recovery difficile sur échec partiel ; (2) le fresh-context "anti-bias" n'a pas tenu (l'enricher a quand même pré-dessiné le domaine au premier passage) ; (3) la cohérence inter-phases est mieux servie par un main agent qui garde le contexte du plan validé. Décision : bundler aggressivement les skills techniques étroitement liées (layers + naming + DI + observability → `onboarding-soma` ; orchestrating + use-case + abstractions + transactions/events + idempotency → `building-a-feature` ; writing-tests → `tdd-workflow` ; adding-a-domain-exception → `writing-domain-code`). Supprimer `incident-response` (les runbooks sont auto-suffisants). Le main agent dispatche `pr-review-toolkit:*` pour les reviews ; tout le reste est exécuté en direct.
+
+### Encore ouvertes
 
 - Choix de la lib Pydantic v2 d'i18n des messages user-facing (out of scope v2, à définir si un projet le demande)
 - Politique de rétention des releases GHCR

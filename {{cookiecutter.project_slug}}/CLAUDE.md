@@ -13,26 +13,23 @@ The reference feature shipped in `src/` and `tests/` is the `POST /v1/users` flo
 
 ## When you do X, use skill Y
 
-| Trigger                                          | Skill                          |
-| ------------------------------------------------ | ------------------------------ |
-| First session on this repo                       | `onboarding-soma`              |
-| "Where does this code go?", import questions     | `clean-architecture-layers`    |
-| Editing `src/<pkg>/domain/`                      | `writing-domain-code`          |
-| "Add a feature", "new use case", "new endpoint"  | `adding-a-use-case`            |
-| "Need a new EmailSender / Gateway / Hasher / ..." | `adding-a-new-abstraction` (BEFORE you write the Protocol) |
-| "New error", "domain exception"                  | `adding-a-domain-exception`    |
-| "Fix a bug", "write a test", editing `tests/fakes/` | `tdd-workflow` then `writing-tests` |
-| Editing `infrastructure/container.py` or `dependencies/` | `using-the-di-container` |
-| "Migration", "schema change", "alembic"          | `database-and-migrations`      |
-| Editing `infrastructure/observability/`          | `observability-patterns`       |
-| Naming a class, function, or module              | `naming-conventions`           |
-| Editing `helm/`                                  | `writing-a-helm-change`        |
-| "Protect a route", "JWT", role check, "401/403"  | `adding-auth`                  |
-| "Idempotency-Key", "retry safe", 409/422 idempotency | `idempotency-and-retries`  |
-| Alert firing, on-call question, "what do I do if…" | `incident-response`        |
-| "Event-source X", "should we ES this entity?", audit / time-travel | `event-sourcing-pattern` |
-| "Review this PR"                                 | `reviewing-a-pr-soma-style`    |
-| Feature spans more than one layer; orchestrating sub-agents | `orchestrating-feature-dev` |
+| Trigger                                                            | Skill                          |
+| ------------------------------------------------------------------ | ------------------------------ |
+| First session on this repo                                         | `onboarding-soma`              |
+| "Where does this code go?", import questions, naming, layer rules  | `onboarding-soma`              |
+| `infrastructure/container.py`, `dependencies/`, observability      | `onboarding-soma`              |
+| Editing `src/<pkg>/domain/`, new entity, value object, exception   | `writing-domain-code`          |
+| "Add a feature", "new use case", "new endpoint"                    | `building-a-feature`           |
+| "Need a new EmailSender / Gateway / Hasher / ..."                  | `building-a-feature` (§ "Adding a new abstraction") |
+| Domain events, transactions, outbox                                | `building-a-feature` (§ "Transactions and events") |
+| "Idempotency-Key", "retry safe", 409/422 idempotency               | `building-a-feature` (§ "Idempotency") |
+| "Fix a bug", "write a test", editing `tests/fakes/`                | `tdd-workflow`                 |
+| "Migration", "schema change", "alembic"                            | `database-and-migrations`      |
+| Editing `helm/`                                                    | `writing-a-helm-change`        |
+| "Protect a route", "JWT", role check, "401/403"                    | `adding-auth`                  |
+| "Event-source X", "should we ES this entity?", audit / time-travel | `event-sourcing-pattern`       |
+| "Review this PR"                                                   | `reviewing-a-pr-soma-style`    |
+| Operator runbooks (incident, backup, restore)                      | `docs/runbooks/`               |
 
 ## Hard rules (non-negotiable)
 
@@ -41,33 +38,26 @@ The reference feature shipped in `src/` and `tests/` is the `POST /v1/users` flo
 3. **No third-party imports in `src/<pkg>/domain/`** — not even `datetime.now()`, `uuid.uuid4()`, `random.*`. Use the `Clock`, `IdGenerator`, `RandomSource` abstractions.
 4. **No log in `domain/` or `application/`** — log only at infrastructure and presentation boundaries.
 5. **No HTTP types in `application/` or `domain/`** — exceptions are `DomainError` subclasses; the HTTP mapping lives in `presentation/api/error_handlers.py`.
-6. **GIVEN/WHEN/THEN strict** in unit and integration tests (function name and body comments).
+6. **GIVEN/WHEN/THEN strict** in unit and integration tests (function name and body comments). One assertion per test, no `@pytest.mark.parametrize`.
 7. **Conventional commits**, no `--no-verify`, no force push.
 8. **Function ≤ 25 lines**. Cyclomatic complexity ≤ 10.
 9. **`Decimal` for money**, **TZ-aware datetimes** stored UTC.
 10. **No `Manager`, `Helper`, `Util`, `Service`** generic class names.
 
-## Custom sub-agents
+## How the main agent works on this repo
 
-This project ships eight custom sub-agents under `.claude/agents/`. They split into two families: **feature-level builders** (produce a vertical slice from a business-intent brief) and **tech-narrow utilities** (surgical edits on one file type). See `orchestrating-feature-dev` for the dispatch rules.
+This project ships **no custom sub-agents**. The main agent handles the whole flow directly, guided by skills. For a feature:
 
-**Feature-level builders** — the main agent dispatches these after designing the Protocol / DTO / event / error contracts:
+1. The user gives a one-liner prompt.
+2. The main agent asks 4-6 clarification questions (picked from the packs in `building-a-feature`).
+3. The user answers.
+4. The main agent produces the 5-section outside-in plan.
+5. The user validates.
+6. The main agent executes outside-in TDD: use case (unit) → persistence (integration) → route (e2e), wires the container, runs mutation testing.
 
-- `soma-use-case-builder` — domain + application + Fake + unit tests (TDD ≥ 90% mutation). Extends the Repository Protocol with business-named methods.
-- `soma-persistence-builder` — SQLAlchemy model + Alembic migration + repository impl + integration tests. Reads the Protocol docstrings as the WHERE-clause contract.
-- `soma-route-builder` — Pydantic schema + FastAPI route + container factory + dependency wrapper + e2e tests.
+The full runbook is in `building-a-feature`. The discipline (red-green-refactor, Fakes-only, GIVEN/WHEN/THEN, mutation) is in `tdd-workflow`. The "how SOMA code is shaped" reference (layers, naming, DI, observability) is in `onboarding-soma`.
 
-**Tech-narrow utilities** — for surgical work, not for building new features:
-
-- `soma-migration-writer` — standalone schema change (alter column, add index, data migration) independent of a new repo.
-- `soma-helm-engineer` — chart edits + `helm lint` / `kubeconform` / `polaris`.
-- `soma-event-sourcing-bootstrapper` — scaffolds the 4 lite-ES files for a named entity (architect decides per `event-sourcing-pattern`).
-- `soma-unit-test-writer` — fills a coverage gap on EXISTING code; NOT for new use cases (the builder writes its own tests).
-- `soma-integration-test-writer` — fills a coverage gap on an EXISTING repo; NOT for new repos.
-
-The main agent is the **architect**: it designs the contracts (Protocol shape, DTO, events, errors, status codes) and writes self-contained briefs for the builders. It does not author production code except for cross-cutting concerns (adding a new shared Protocol, updating `ERROR_HTTP_MAPPING`). PR review uses Anthropic's built-in `pr-review-toolkit:*` agents plus the `reviewing-a-pr-soma-style` skill — no custom reviewer ships here.
-
-Dispatch through the `orchestrating-feature-dev` skill or invoke an agent directly with the `Task` tool when the work is narrowly scoped. PR review uses Anthropic's built-in `pr-review-toolkit:*` agents plus the `reviewing-a-pr-soma-style` skill — no custom reviewer ships here.
+PR review uses Anthropic's built-in `pr-review-toolkit:*` agents plus the `reviewing-a-pr-soma-style` skill.
 
 ## Pointers
 

@@ -297,8 +297,8 @@ If `from_events` becomes a hot path (rare), add **snapshots** — but the SOMA r
 Steps (per entity, not bulk):
 
 1. **Decide explicitly.** The decision table at the top must yield "event-source".
-2. **Invoke the agent**: `Task(subagent_type="soma-event-sourcing-bootstrapper", prompt="Bootstrap event sourcing for the X entity")`. This generates files 1, 2, 3, 4.
-3. **Rewrite the domain entity** to track `_pending_events` and emit events from each mutation method. The agent **cannot** do this for you — the events are business facts that need careful naming.
+2. **Scaffold the four ES files** for that entity, following the file layout in this skill: the `events` table-row helper, the aggregate repository (`EventSourced<Entity>Repository`) that hydrates from events, the projection table (read model), and the projection updater. The main agent writes these directly — there is no dedicated sub-agent.
+3. **Rewrite the domain entity** to track `_pending_events` and emit events from each mutation method. Scaffolding cannot do this for you — the events are business facts that need careful naming.
 4. **Wire the new repo in `container.py`**: swap `build_user_repository` to construct the `EventSourcedUserRepository` instead of `SqlAlchemyUserRepository`.
 5. **Backfill events from existing rows**:
    ```sql

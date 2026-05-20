@@ -36,7 +36,7 @@ artefact. Run `just openapi` locally to dump the OpenAPI schema to `openapi.json
 1. Open in VS Code and run **Reopen in Container** — Postgres + Jaeger + OTel collector start automatically.
 2. Read [`CLAUDE.md`](CLAUDE.md) (AI rules) and [`docs/architecture.md`](docs/architecture.md).
 3. Browse the **User reference feature** shipped in `src/` and `tests/` — it threads the four layers end-to-end (`POST /v1/users` → `CreateUserUseCase` → `SqlAlchemyUserRepository` → `users` table). It is real working code: keep it as a starting point if your service has the notion of a user; remove it cleanly otherwise (see below).
-4. Add your first feature using the `adding-a-use-case` Claude skill.
+4. Add your first feature using the `building-a-feature` Claude skill.
 
 ### Removing the reference feature
 

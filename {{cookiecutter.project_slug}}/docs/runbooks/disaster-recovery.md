@@ -164,7 +164,7 @@ For each row, decide:
 
 **Resolution**: if the poison was caused by a handler regression, ship the fix AND replay the affected rows.
 
-See `transactions-and-events` skill for the lifecycle and compensating-event pattern (Saga).
+See `building-a-feature` § "Transactions and events" for the lifecycle and compensating-event pattern (Saga).
 
 ---
 
@@ -261,7 +261,7 @@ This template ships single-region by default. The playbook applies only if the p
 ## What does NOT belong in this runbook
 
 * **Application bugs** — those go in the code, the tests, and the post-incident write-up. The runbook is for *operational* failures, not bad business logic.
-* **Performance tuning** — see `observability-patterns` skill and the Grafana dashboards.
+* **Performance tuning** — see `onboarding-soma` § "Observability patterns" and the Grafana dashboards.
 * **Cost incidents** — separate budget / FinOps runbook.
 
 When you add a new playbook here, keep the 5-section structure and link from the corresponding PrometheusRule alert annotation.

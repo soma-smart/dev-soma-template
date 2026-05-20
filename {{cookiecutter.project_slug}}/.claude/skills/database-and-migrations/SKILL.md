@@ -14,7 +14,7 @@ Stack: SQLAlchemy 2.0 async + asyncpg + Alembic with an async env. The `0001_ini
 * **Repositories** — `src/<pkg>/infrastructure/persistence/<entity>_repository.py`. Map `Entity ↔ Model` in private `_to_entity` / `_to_model` static methods; expose only domain entities outward.
 * **Alembic migrations** — `alembic/versions/<NNNN>_<short_name>.py`. One per logical schema change.
 
-For the transactional behaviour repositories run under (commit at request boundary, no `commit()` inside the repo), see `transactions-and-events`.
+For the transactional behaviour repositories run under (commit at request boundary, no `commit()` inside the repo), see `building-a-feature` § "Transactions and events".
 
 ## Adding a new model
 
@@ -101,7 +101,7 @@ The `downgrade()` is symmetric: `op.drop_column(...)` (drop the index first if a
 When you add the repository method that reads/writes the new column, write the integration tests next to the existing User reference:
 
 * `tests/integration/infrastructure/test_<entity>_repository.py`
-* Use the `pg_session` fixture (testcontainers Postgres, transaction rolled back per test). See `writing-tests`.
+* Use the `pg_session` fixture (testcontainers Postgres, transaction rolled back per test). See `tdd-workflow` § "Real systems at integration".
 * One test per edge case, no `parametrize`. The `test_user_repository.py` shipped with the template is the model to copy.
 
 ## Production

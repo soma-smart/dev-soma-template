@@ -132,8 +132,8 @@ metrics:
   path: /metrics
   # PrometheusRule with sensible defaults. Tune the thresholds to your
   # traffic profile before going live — defaults err on the conservative
-  # side to avoid alert fatigue. See the ``transactions-and-events`` and
-  # ``writing-a-helm-change`` skills for the lifecycle of each alert.
+  # side to avoid alert fatigue. See the ``building-a-feature`` § "Transactions and events"
+  # and ``writing-a-helm-change`` skills for the lifecycle of each alert.
   alerts:
     enabled: false
     # Extra labels merged into every alert — drive Alertmanager routing
@@ -148,7 +148,7 @@ metrics:
 
 # Outbox relay — separate Deployment that polls outbox_events and dispatches
 # rows through the in-process handler registry (see ADR 0005 +
-# transactions-and-events skill). Same image as the API, different command.
+# building-a-feature § "Transactions and events"). Same image as the API, different command.
 # Turn off via relay.enabled=false on projects that don't publish events.
 relay:
   enabled: true
