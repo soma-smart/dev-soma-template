@@ -9,7 +9,7 @@
 
 ## Contexte
 
-Après le trim 2026-05-19 (`docs/superpowers/specs/2026-05-05-soma-template-v2-design.md` §24), le template ne ship plus de sub-agent. Le main agent exécute le flow complet end-to-end via le runbook `building-a-feature`.
+Après le trim 2026-05-19 (cf. historique git), le template ne ship plus de sub-agent. Le main agent exécute le flow complet end-to-end via le runbook `building-a-feature`.
 
 Ce walkthrough teste cette configuration sur 3 features choisies pour couvrir les croisements typiques :
 

@@ -7,7 +7,7 @@
 
 A **Cookiecutter** that generates SOMA Python services. Output = a project with FastAPI + Clean Architecture + observability + Helm + multi-layer guardrails (Claude skills, hooks, pre-commit, CI).
 
-Authoritative design: `docs/superpowers/specs/2026-05-05-soma-template-v2-design.md`.
+The design rationale lives in the git history (commit messages are the source of truth for "why"). Each generated project ships its own `docs/architecture.md` and `docs/adr/`.
 
 ## Repo layout
 
@@ -16,7 +16,6 @@ Authoritative design: `docs/superpowers/specs/2026-05-05-soma-template-v2-design
 ├── cookiecutter.json                      # template variables
 ├── hooks/                                 # pre/post_gen_project Python hooks
 ├── tests/                                 # pytest-cookies bake tests of the template
-├── docs/                                  # specs and ADRs about the template
 └── {{cookiecutter.project_slug}}/         # the generated project (see its own CLAUDE.md)
 ```
 
@@ -32,10 +31,9 @@ Authoritative design: `docs/superpowers/specs/2026-05-05-soma-template-v2-design
 
 ## Editing workflow
 
-1. Read the spec section relevant to the change.
-2. Edit either the template machinery (root) **or** the generated project skeleton (`{{cookiecutter.project_slug}}/`) — rarely both in the same change.
-3. Run bake tests locally: `uv run pytest`.
-4. Update the spec parking section (`docs/superpowers/specs/...md` §24) if the change resolves an open question.
+1. Edit either the template machinery (root) **or** the generated project skeleton (`{{cookiecutter.project_slug}}/`) — rarely both in the same change.
+2. Run bake tests locally: `uv run pytest`.
+3. Write the commit message so it captures the *why* of the change (it's the long-term decision record).
 
 ## Commands
 

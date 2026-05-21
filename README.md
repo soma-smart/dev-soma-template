@@ -13,8 +13,6 @@ What you get out-of-the-box:
 - **Helm chart** with multi-environment values, schema validation, migrations job
 - **Multi-layer guardrails** preventing convention drift: Claude Code skills + hooks, pre-commit, git hooks, CI
 
-Authoritative design: [`docs/superpowers/specs/2026-05-05-soma-template-v2-design.md`](docs/superpowers/specs/2026-05-05-soma-template-v2-design.md).
-
 ## Generate a new project
 
 ### Interactive (recommended for first use)
@@ -59,7 +57,7 @@ You will be prompted for:
 | `author_name`          | `SOMA`                |                                                     |
 | `author_email`         | `team@soma-smart.com` |                                                     |
 | `python_version`       | `3.13`                | `3.13` or `3.14`                                    |
-| `database`             | `postgres`            | `postgres`, `sqlite`, or `none` (no example)        |
+| `database`             | `postgres`            | `postgres` (full) or `sqlite` (light)               |
 | `include_helm`         | `yes`                 | Ship a Helm chart                                   |
 | `include_otel`         | `yes`                 | Wire OpenTelemetry instrumentations                 |
 | `include_cli`          | `no`                  | Add a `presentation/cli/` layer                     |
