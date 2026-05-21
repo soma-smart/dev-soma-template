@@ -105,8 +105,12 @@ def test_given_baked_project_when_reading_pyproject_then_has_correct_name(cookie
 
 
 @pytest.mark.unit
-def test_given_database_none_when_baking_then_aborts(cookies) -> None:  # type: ignore[no-untyped-def]
-    # GIVEN / WHEN
+def test_given_database_none_forced_via_extra_context_when_baking_then_aborts(cookies) -> None:  # type: ignore[no-untyped-def]
+    # GIVEN: 'none' is no longer offered in the interactive menu, but the
+    # pre_gen hook still guards against programmatic overrides (CI scripts,
+    # cookiecutter --extra-context ...).
+
+    # WHEN
     result = cookies.bake(extra_context={"project_name": "Bad", "database": "none"})
 
     # THEN
