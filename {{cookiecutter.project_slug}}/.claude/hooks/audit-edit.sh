@@ -50,7 +50,20 @@ if [[ "$REL" == tests/* && "$(basename "$REL")" == test_*.py ]]; then
   fi
 fi
 
-# 4. New DomainError without HTTP mapping.
+# 4. Auto-format + lint Python files (ruff check --fix + ruff format).
+#    Surfaces remaining unfixable issues on stderr so Claude self-corrects on
+#    the next turn. Skipped on non-Python paths and on deleted files.
+if [[ "$REL" == *.py ]]; then
+  uv run ruff check --fix "$FILE" >/tmp/audit-ruff-check.log 2>&1
+  if [ $? -ne 0 ]; then
+    echo "WARN: ruff issues remaining after auto-fix on $REL:" >&2
+    cat /tmp/audit-ruff-check.log >&2
+    WARN=1
+  fi
+  uv run ruff format "$FILE" >/tmp/audit-ruff-format.log 2>&1 || true
+fi
+
+# 5. New DomainError without HTTP mapping.
 if [[ "$REL" == src/*/domain/exceptions/* ]] && grep -q "class .*Error" "$FILE"; then
   ERROR_HANDLERS=$(find src -path "*/presentation/api/error_handlers.py" | head -1)
   if [ -n "$ERROR_HANDLERS" ]; then
