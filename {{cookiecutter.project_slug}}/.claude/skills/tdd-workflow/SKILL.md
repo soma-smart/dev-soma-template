@@ -139,16 +139,27 @@ gaps. Pattern check-list for any new ``…UseCase``:
    context kwargs are excluded from the kill-rate target — don't mix.
 
 3. **DTO Output fields.** Every ``return SomeOutput(field=value)``
-   mutates each ``field=value`` to ``field=None``. Add one assertion
-   per field on the return value, or one assertion that compares the
-   whole Output to a literal:
+   mutates each ``field=value`` to ``field=None``. Add **one named
+   test per field** (not several asserts in the same test — the
+   one-assertion-per-test rule still holds):
 
    ```python
-   output = await use_case.execute(...)
-   assert output.id == persisted.id.value
-   assert output.name == "Shopping"
-   assert output.created_at == frozen_clock.now()
+   async def test_given_creation_when_inspecting_output_then_id_matches_persisted(...):
+       output = await use_case.execute(...)
+       assert output.id == persisted.id.value
+
+   async def test_given_creation_when_inspecting_output_then_name_matches_input(...):
+       output = await use_case.execute(...)
+       assert output.name == "Shopping"
+
+   async def test_given_creation_when_inspecting_output_then_created_at_matches_clock(...):
+       output = await use_case.execute(...)
+       assert output.created_at == frozen_clock.now()
    ```
+
+   Alternatively, one test that asserts the whole Output equals a
+   literal — that's still ONE assertion. Pick the form that produces
+   the most readable failure message for that field.
 
 Run mutmut after these are in place. Real holes (e.g., a missing branch
 on the use case body) become much easier to spot in the report once
@@ -320,7 +331,49 @@ async def test_given_<context>_when_<action>_then_<expectation>() -> None:
 
 Tolerance: `# WHEN / THEN` combined is allowed only when the WHEN is `pytest.raises`. Enforced by `scripts/checks/test_naming.py`. Annotation form `# GIVEN: <inline note>` is accepted for fixture-driven tests where the GIVEN is fully composed by fixtures.
 
-**One assertion per test, no `@pytest.mark.parametrize`.** A test failure must point to a single behaviour. If you're tempted to parametrize, split into N named tests — the test name carries more meaning that way.
+#### 4a. One test == one assertion == one reason to fail
+
+**A single `assert` per test. A test should fail for ONE reason.**
+
+When a test fails, the test name + the single assert should tell you *exactly* what behaviour broke. Two asserts in the same test means:
+
+- A failure on the first one hides the second (you never learn if it would have passed).
+- The test name has to be vague enough to describe both — and vague names rot fast.
+- A regression in one field looks identical to a regression in a different field in the same test.
+
+Forbidden:
+
+```python
+# ❌ Two asserts, the test name lies (it claims "one thing")
+async def test_given_creation_when_executing_then_persists_and_publishes(...):
+    await use_case.execute(...)
+    assert len(repo.lists) == 1            # might fail
+    assert event_bus.published[0] ...       # never reached if the above fails
+```
+
+Required: split into N tests, each with a focused name:
+
+```python
+async def test_given_creation_when_executing_then_persists_one_list(...):
+    await use_case.execute(...)
+    assert len(repo.lists) == 1
+
+async def test_given_creation_when_inspecting_event_then_name_is_todo_list_created(...):
+    await use_case.execute(...)
+    assert event_bus.published[0][0] == "todo_list.created"
+```
+
+The cost is verbose — but mutation testing and CI failures pay it back
+the first time a regression lands.
+
+**No `@pytest.mark.parametrize`.** If you're tempted to parametrize,
+split into N named tests — the test name carries more meaning than a
+parametrize id.
+
+#### 4b. Tolerated multi-statement forms
+
+- A `pytest.raises(...)` block plus an assert on `excinfo.value.context[...]` is still ONE behavioural assertion (the exception type + its context payload describe the same failure).
+- Equality on a whole DTO / dict / list — `assert output == ExpectedOutput(...)` is one assertion, even if it covers many fields.
 
 ### 5. FIRST principles
 
