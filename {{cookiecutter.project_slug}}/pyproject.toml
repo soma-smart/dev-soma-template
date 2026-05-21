@@ -115,6 +115,15 @@ ignore = [
 # Cross-layer imports are forbidden by Clean Architecture.
 # Enforced more thoroughly by scripts/checks/no_third_party_in_domain.py.
 
+[tool.ruff.lint.isort]
+# Keep ``tests.*`` imports in their own group, separated from the
+# project package. Without this, the alphabetical order between
+# ``tests`` and ``{{ cookiecutter.package_name }}`` depends on the
+# package name's first letter — a baked project named ``zebra`` would
+# sort imports differently from one named ``alpha``. Forcing the split
+# makes the layout deterministic regardless of the chosen package name.
+forced-separate = ["tests"]
+
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 

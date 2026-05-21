@@ -143,6 +143,7 @@ def test_given_license_choice_when_baking_then_license_file_matches(  # type: ig
         ("sqlite-no-helm-otel", {"database": "sqlite", "include_helm": "no", "include_otel": "yes"}),
         ("sqlite-no-helm-no-otel", {"database": "sqlite", "include_helm": "no", "include_otel": "no"}),
         ("ts-sdk", {"database": "postgres", "frontend_sdk": "typescript"}),
+        ("swagger-oauth2", {"swagger_auth_scheme": "oauth2_auth_code"}),
     ],
 )
 def test_given_combo_when_baking_then_succeeds(cookies, combo_id: str, context: dict[str, str]) -> None:  # type: ignore[no-untyped-def]
@@ -170,6 +171,15 @@ def test_given_combo_when_baking_then_succeeds(cookies, combo_id: str, context: 
     else:
         assert not (project / "scripts" / "export_openapi.py").exists()
         assert not (project / ".github" / "workflows" / "sdk-typescript.yml").exists()
+    env_text = (project / ".env.example").read_text(encoding="utf-8")
+    if context.get("swagger_auth_scheme") == "oauth2_auth_code":
+        # The IdP-driven defaults must be present.
+        assert "SWAGGER_OAUTH2_AUTHORIZATION_URL=https://login.microsoftonline.com" in env_text
+        assert "AUTH_JWT_ALGORITHM=RS256" in env_text
+    else:
+        # Default flavour keeps the OAuth2 endpoints empty (paste-once UX).
+        assert "SWAGGER_OAUTH2_AUTHORIZATION_URL=\n" in env_text
+        assert "AUTH_JWT_ALGORITHM=HS256" in env_text
 
 
 @pytest.mark.integration

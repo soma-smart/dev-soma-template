@@ -16,7 +16,6 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.fakes.auth import FakeTokenVerifier
 from {{ cookiecutter.package_name }}.application.use_cases.ensure_user_exists import (
     EnsureUserExistsUseCase,
 )
@@ -28,6 +27,8 @@ from {{ cookiecutter.package_name }}.presentation.api.dependencies.common import
 from {{ cookiecutter.package_name }}.presentation.api.dependencies.users import (
     get_ensure_user_exists_use_case,
 )
+
+from tests.fakes.auth import FakeTokenVerifier
 
 
 class StubAsyncSession:

@@ -11,14 +11,15 @@ from __future__ import annotations
 
 import pytest
 
-from tests.fakes.event_bus import InMemoryEventBus
-from tests.fakes.repositories.user import InMemoryUserRepository
 from {{ cookiecutter.package_name }}.application.auth.current_user import CurrentUser
 from {{ cookiecutter.package_name }}.application.dtos.user import EnsureUserExistsInput
 from {{ cookiecutter.package_name }}.application.use_cases.ensure_user_exists import (
     EnsureUserExistsUseCase,
 )
 from {{ cookiecutter.package_name }}.domain.exceptions.auth import MissingProfileClaimsError
+
+from tests.fakes.event_bus import InMemoryEventBus
+from tests.fakes.repositories.user import InMemoryUserRepository
 
 
 def _claims(

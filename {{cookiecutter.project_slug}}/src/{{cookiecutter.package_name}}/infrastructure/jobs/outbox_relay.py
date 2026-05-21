@@ -41,7 +41,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from {{ cookiecutter.package_name }}.infrastructure.config.settings import get_settings
 from {{ cookiecutter.package_name }}.infrastructure.container import build_database
-from {{ cookiecutter.package_name }}.infrastructure.jobs import event_handlers  # noqa: F401 — import side-effect: register decorators
+from {{ cookiecutter.package_name }}.infrastructure.jobs import (
+    event_handlers,  # noqa: F401 — import side-effect: register decorators
+)
 from {{ cookiecutter.package_name }}.infrastructure.jobs.backoff import MAX_ATTEMPTS, compute_next_attempt
 from {{ cookiecutter.package_name }}.infrastructure.jobs.handlers import dispatch
 from {{ cookiecutter.package_name }}.infrastructure.jobs.outbox_metrics import (

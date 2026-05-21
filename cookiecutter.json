@@ -11,6 +11,7 @@
   "include_otel": ["yes", "no"],
   "include_cli": ["no", "yes"],
   "frontend_sdk": ["none", "typescript"],
+  "swagger_auth_scheme": ["http_bearer", "oauth2_auth_code"],
   "license": ["proprietary", "MIT", "Apache-2.0"],
   "__prompts__": {
     "project_name": "Human-readable project name",
@@ -25,6 +26,7 @@
     "include_otel": "Wire OpenTelemetry instrumentations?",
     "include_cli": "Add a presentation/cli/ layer?",
     "frontend_sdk": "Client SDK generation: 'none' (no JS frontend), 'typescript' (ships scripts/export_openapi.py + sdk-typescript.yml workflow)",
+    "swagger_auth_scheme": "Auth UX in Swagger UI: 'http_bearer' (paste a token, dev-friendly with HS256 secret), 'oauth2_auth_code' (one-click redirect to your IdP, requires an app registration). Code ships both schemes — this controls the .env.example defaults and the README focus only.",
     "license": "Project license"
   }
 }

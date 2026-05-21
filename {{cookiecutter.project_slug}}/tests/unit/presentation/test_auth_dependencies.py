@@ -6,7 +6,6 @@ import pytest
 from fastapi import Request
 from fastapi.security import HTTPAuthorizationCredentials
 
-from tests.fakes.auth import FakeTokenVerifier
 from {{ cookiecutter.package_name }}.application.auth.current_user import CurrentUser
 from {{ cookiecutter.package_name }}.domain.exceptions.auth import (
     InsufficientPermissionsError,
@@ -19,6 +18,8 @@ from {{ cookiecutter.package_name }}.presentation.api.dependencies.auth import (
     get_current_user_optional,
     require_roles,
 )
+
+from tests.fakes.auth import FakeTokenVerifier
 
 
 def _request_with(headers: dict[str, str]) -> Request:

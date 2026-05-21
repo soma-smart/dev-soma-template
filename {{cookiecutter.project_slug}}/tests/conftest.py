@@ -14,15 +14,16 @@ from datetime import UTC, datetime
 
 import pytest
 
+from {{ cookiecutter.package_name }}.application.use_cases.ensure_user_exists import (
+    EnsureUserExistsUseCase,
+)
+
 from tests.fakes.auth import FakeTokenVerifier
 from tests.fakes.clock import FrozenClock
 from tests.fakes.event_bus import InMemoryEventBus
 from tests.fakes.id_generator import SequentialIdGenerator
 from tests.fakes.random_source import SeededRandomSource
 from tests.fakes.repositories.user import InMemoryUserRepository
-from {{ cookiecutter.package_name }}.application.use_cases.ensure_user_exists import (
-    EnsureUserExistsUseCase,
-)
 
 DEFAULT_TEST_INSTANT = datetime(2026, 5, 5, 12, 0, tzinfo=UTC)
 

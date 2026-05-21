@@ -78,6 +78,42 @@ class Settings(BaseSettings):
     auth_jwt_issuer: str | None = None
     auth_jwt_roles_claim: str = "roles"
 
+    # ── Swagger UI OAuth2 (optional) ─────────────────────────────────
+    # When ``swagger_oauth2_authorization_url`` and
+    # ``swagger_oauth2_token_url`` are BOTH set, the API exposes an
+    # ``OAuth2AuthorizationCodeBearer`` security scheme and Swagger UI
+    # renders a clickable "Authorize" button that redirects to the IdP
+    # for a real SSO login (no token paste required).
+    #
+    # When either URL is empty, the API falls back to ``HTTPBearer`` —
+    # Swagger UI still shows an "Authorize" button but the dev pastes a
+    # JWT manually (typical local-dev flow with ``AUTH_JWT_ALGORITHM=HS256``
+    # and a shared secret).
+    #
+    # The Swagger UI client must be registered as a SEPARATE app on the
+    # IdP (Azure / Auth0 / Keycloak…) — see ``docs/swagger-oauth2.md``
+    # for the Azure walkthrough.
+    swagger_oauth2_authorization_url: str | None = None
+    swagger_oauth2_token_url: str | None = None
+    swagger_oauth2_client_id: str | None = None
+    swagger_oauth2_scopes: Annotated[dict[str, str], NoDecode] = Field(
+        default_factory=lambda: {
+            "openid": "OpenID Connect baseline",
+            "email": "Email claim",
+            "profile": "Display name / picture claims",
+        }
+    )
+    swagger_oauth2_pkce_enabled: bool = True
+
+    @field_validator("swagger_oauth2_scopes", mode="before")
+    @classmethod
+    def _parse_scopes(cls, value: Any) -> Any:
+        """Accept ``openid,email,profile`` in env files as a shorthand."""
+        if isinstance(value, str):
+            scopes = [item.strip() for item in value.split(",") if item.strip()]
+            return {scope: scope for scope in scopes}
+        return value
+
     # ── Security ─────────────────────────────────────────────────────
     # ``NoDecode`` opts out of Pydantic's default JSON decoding so we can
     # accept the much friendlier comma-separated format in .env files.

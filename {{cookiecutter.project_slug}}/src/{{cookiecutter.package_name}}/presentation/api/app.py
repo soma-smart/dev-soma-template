@@ -72,10 +72,26 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             await engine.dispose()
             logger.info("app.shutdown")
 
+    # Swagger UI OAuth2 init — when the IdP endpoints are configured, the
+    # generated docs at /docs render an interactive "Authorize" flow that
+    # redirects to the IdP (Authorization Code + PKCE). When unconfigured,
+    # Swagger falls back to the HTTPBearer paste-once UX (see
+    # ``presentation/api/dependencies/auth.py::_build_security_scheme``).
+    swagger_ui_init_oauth: dict[str, object] | None = (
+        {
+            "clientId": settings.swagger_oauth2_client_id,
+            "usePkceWithAuthorizationCodeGrant": settings.swagger_oauth2_pkce_enabled,
+            "scopes": " ".join(settings.swagger_oauth2_scopes),
+        }
+        if settings.swagger_oauth2_client_id
+        else None
+    )
+
     app = FastAPI(
         title=settings.app_name,
         version="0.1.0",
         lifespan=lifespan,
+        swagger_ui_init_oauth=swagger_ui_init_oauth,
     )
 
     # Middleware order: the LAST ``add_middleware`` becomes the OUTERMOST
