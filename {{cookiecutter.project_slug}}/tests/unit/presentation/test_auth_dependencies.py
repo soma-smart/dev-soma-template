@@ -45,6 +45,8 @@ def test_given_valid_bearer_credentials_when_extracting_token_then_returns_token
 
 @pytest.mark.unit
 def test_given_no_credentials_when_extracting_token_then_raises_missing_token() -> None:
+    # GIVEN: no Authorization header was provided
+
     # WHEN / THEN
     with pytest.raises(MissingTokenError):
         get_bearer_token(None)

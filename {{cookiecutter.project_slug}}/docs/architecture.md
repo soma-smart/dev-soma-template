@@ -33,33 +33,35 @@ flowchart TB
     class P presentation
 ```
 
-Request flow for `POST /v1/users` — illustrates how a request crosses the layers:
+Request flow for `GET /v1/users/me` — illustrates how an authenticated request crosses the layers:
 
 ```mermaid
 sequenceDiagram
     participant C as HTTP Client
     participant M as Middleware<br/>(RequestId, AccessLog, ...)
+    participant Auth as get_current_user<br/>(presentation, JWT verify)
     participant R as users Router<br/>(presentation)
     participant DI as Depends<br/>(presentation/api/dependencies)
-    participant U as CreateUserUseCase<br/>(application)
+    participant U as EnsureUserExistsUseCase<br/>(application)
     participant Repo as SqlAlchemyUserRepository<br/>(infrastructure)
     participant DB as Postgres
 
-    C->>M: POST /v1/users {email,name}
-    M->>R: enriched request
-    R->>DI: get_create_user_use_case
-    DI->>Repo: build_user_repository(session)
-    DI-->>R: CreateUserUseCase wired with fakes/concretes
-    R->>U: execute(CreateUserInput)
-    U->>Repo: find_by_email(Email)
+    C->>M: GET /v1/users/me (Bearer <jwt>)
+    M->>Auth: enriched request
+    Auth-->>R: CurrentUser(subject, email, name)
+    R->>DI: get_or_provision_user(current_user)
+    DI->>U: execute(EnsureUserExistsInput(current_user))
+    U->>Repo: find_by_subject(subject)
     Repo->>DB: SELECT
     DB-->>Repo: row | none
     Repo-->>U: User | None
-    U->>Repo: add(User)
-    Repo->>DB: INSERT (transaction commits at request boundary)
-    U-->>R: CreateUserOutput
-    R-->>M: UserReadSchema (201)
-    M-->>C: 201 + X-Request-ID
+    alt user missing
+        U->>Repo: add(User(subject, email, name))
+        Repo->>DB: INSERT (transaction commits at request boundary)
+    end
+    U-->>R: EnsureUserExistsOutput(user)
+    R-->>M: UserReadSchema (200)
+    M-->>C: 200 + X-Request-ID
 ```
 
 ## Dependency rule

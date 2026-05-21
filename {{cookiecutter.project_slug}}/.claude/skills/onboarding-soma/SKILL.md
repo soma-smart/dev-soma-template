@@ -125,32 +125,52 @@ The architectural rules are not aspirational. They are checked mechanically:
 
 ## 4. The User reference feature
 
-The codebase ships a working `POST /v1/users` feature that threads all four layers end to end. **Read these files** before adding your first feature — copy the pattern:
+The codebase ships a working SSO-backed user-provisioning flow that
+threads all four layers end to end:
+
+- `GET /v1/users/me` — the only user endpoint. The handler depends on
+  `get_or_provision_user`, which chains JWT verification with
+  `EnsureUserExistsUseCase`. On the first authenticated request for a
+  JWT subject, a `User` row is created from the JWT claims (``email``
+  + ``name``); subsequent calls return the existing row.
+
+**Read these files** before adding your first feature — copy the
+pattern (there is intentionally NO `POST /v1/users` — provisioning
+happens lazily via SSO):
 
 | Layer | File |
 |---|---|
 | domain | `domain/value_objects/email.py`, `domain/value_objects/user_id.py` |
-| domain | `domain/entities/user.py` |
-| domain | `domain/exceptions/user.py` |
-| application | `application/repositories/user.py` (abstract) |
-| application | `application/dtos/user.py` (`CreateUserInput` / `CreateUserOutput`) |
-| application | `application/use_cases/create_user.py` |
-| infrastructure | `infrastructure/persistence/models/user.py` (SQLAlchemy `UserModel`) |
+| domain | `domain/entities/user.py` (carries the `subject` field — IdP `sub` claim) |
+| domain | `domain/exceptions/user.py` (`UserAlreadyExistsError`, `UserNotFoundError`) |
+| domain | `domain/exceptions/auth.py` (`MissingProfileClaimsError` — JWT lacks email/name) |
+| application | `application/auth/current_user.py` (`CurrentUser` VO, JWT claims projection) |
+| application | `application/repositories/user.py` (Protocol — `find_by_subject` is the primary lookup) |
+| application | `application/dtos/user.py` (`EnsureUserExistsInput` / `EnsureUserExistsOutput`) |
+| application | `application/use_cases/ensure_user_exists.py` (idempotent find-or-create) |
+| infrastructure | `infrastructure/persistence/models/user.py` (`UserModel` — `subject` UNIQUE) |
 | infrastructure | `infrastructure/persistence/user_repository.py` (`SqlAlchemyUserRepository`) |
-| infrastructure | `infrastructure/container.py` (`build_user_repository`, `build_create_user_use_case`) |
-| presentation | `presentation/api/schemas/user.py` (Pydantic) |
-| presentation | `presentation/api/dependencies/users.py` (`Depends` wiring) |
-| presentation | `presentation/api/v1/users.py` (router) |
+| infrastructure | `infrastructure/auth/jwt_verifier.py` (HS256/RS256, JWKS) |
+| infrastructure | `infrastructure/container.py` (`build_user_repository`, `build_ensure_user_exists_use_case`) |
+| presentation | `presentation/api/schemas/user.py` (`UserReadSchema`) |
+| presentation | `presentation/api/dependencies/users.py` (`get_or_provision_user` chain) |
+| presentation | `presentation/api/dependencies/auth.py` (`HTTPBearer` / `OAuth2AuthorizationCodeBearer` scheme, role checks) |
+| presentation | `presentation/api/v1/users.py` (`GET /v1/users/me` router) |
 | presentation | `presentation/api/error_handlers.py` (the `ERROR_HTTP_MAPPING` entries) |
 | tests | `tests/unit/domain/test_user.py` + `test_email.py` |
-| tests | `tests/unit/application/test_create_user_use_case.py` |
+| tests | `tests/unit/application/test_ensure_user_exists_use_case.py` |
 | tests | `tests/integration/infrastructure/test_user_repository.py` |
-| tests | `tests/e2e/api/test_create_user_endpoint.py` |
-| tests | `tests/fakes/repositories/user.py` (`InMemoryUserRepository`) |
+| tests | `tests/e2e/api/test_users_me_endpoint.py` |
+| tests | `tests/fakes/repositories/user.py` (`InMemoryUserRepository`) + `tests/fakes/auth.py` (`FakeTokenVerifier`) |
 
-Migration: `alembic/versions/0001_init_users.py`.
+Migration: `alembic/versions/0001_init_users.py` (creates `users.id` +
+`users.subject` UNIQUE).
 
-If the project domain has no notion of a user, see `README.md` → "Removing the reference feature" for the clean deletion path.
+If the project does not need a user notion at all, remove the feature
+cleanly (entity, use case, repo binding, route, schema, migration,
+tests). The auth chain (`get_current_user`, `require_roles`) is
+independent and stays useful for projects that protect routes without
+mapping to a persisted `User` row.
 
 ---
 
@@ -173,7 +193,7 @@ If the project domain has no notion of a user, see `README.md` → "Removing the
 | I/O-bound load (DB, HTTP) | `load_<noun>` | `read_user_from_db` |
 | Add a new entity to a collection / store | `add(<entity>)` | `insert_user`, `register_user` (when "register" carries no business meaning) |
 | Domain registration with a process | `register_<noun>` | use only when registration is a real domain step |
-| Create-and-return a fresh instance | `create_<noun>` | use cases follow this for `CreateUserUseCase` |
+| Create-and-return a fresh instance | `create_<noun>` | use cases follow this for `CreateOrderUseCase`, `CreateTodoListUseCase`, … |
 | Remove without history | `delete_<noun>` | |
 | Mark inactive while keeping the row | `archive_<noun>` / `deactivate_<noun>` | |
 | Pull collection by criterion | `find_<noun>s_by_<field>` | not `get_users_where`, not `list_users_for` |
@@ -223,7 +243,7 @@ Prefix by mechanism. Reads as "this is the X-flavoured implementation of role Y"
 
 ### Suffixes that ARE kept on purpose
 
-- **Use cases** — `…UseCase` (`CreateUserUseCase`, not `CreateUser`). Deliberate role marker.
+- **Use cases** — `…UseCase` (`EnsureUserExistsUseCase`, `CreateOrderUseCase` — never bare `CreateOrder`). Deliberate role marker, makes the layer obvious.
 - **Errors** — `…Error` (`UserAlreadyExistsError`). `…Exception` only on stdlib subclasses.
 - **Pydantic schemas (presentation)** — `…Schema` (`UserCreateSchema`, `ErrorResponseSchema`).
 - **SQLAlchemy models (infrastructure)** — `…Model` (`UserModel`). Disambiguates from the domain `User`.
@@ -297,7 +317,7 @@ If the Repo has methods like `find_by_X(value)` for every field, you've recreate
 
 ### Tests
 
-- File: `test_<sut_name>.py` mirroring the source layout (`tests/unit/application/test_create_user_use_case.py`).
+- File: `test_<sut_name>.py` mirroring the source layout (`tests/unit/application/test_ensure_user_exists_use_case.py`).
 - Function: `test_given_<context>_when_<action>_then_<expectation>`.
 - Body format (GIVEN / WHEN / THEN comments): see `tdd-workflow`.
 
@@ -326,9 +346,9 @@ This is the **only** seam between `application/` (abstractions) and `infrastruct
 | `build_database(settings)` | `(AsyncEngine, async_sessionmaker)` |
 | `build_user_repository(session)` | `UserRepository` (`SqlAlchemyUserRepository`) |
 | `build_event_bus(session)` | `EventBus` (`SqlOutboxEventBus`) |
-| `build_create_user_use_case(*, users, clock, ids)` | `CreateUserUseCase` wrapped with `_instrumented` |
+| `build_ensure_user_exists_use_case(*, users, clock, ids, events)` | `EnsureUserExistsUseCase` wrapped with `_instrumented` |
 
-Matching `Depends` in `presentation/api/dependencies/`: `get_settings_dependency`, `get_session`, `get_clock`, `get_id_generator`, `get_random_source` (in `common.py`); `get_user_repository`, `get_create_user_use_case` (in `users.py`).
+Matching `Depends` in `presentation/api/dependencies/`: `get_settings_dependency`, `get_session`, `get_clock`, `get_id_generator`, `get_random_source` (in `common.py`); `get_user_repository`, `get_ensure_user_exists_use_case`, `get_or_provision_user` (in `users.py`); `get_current_user`, `require_roles`, the security scheme (in `auth.py`).
 
 ### Adding a new factory
 

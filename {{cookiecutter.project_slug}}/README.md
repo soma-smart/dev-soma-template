@@ -35,7 +35,7 @@ artefact. Run `just openapi` locally to dump the OpenAPI schema to `openapi.json
 
 1. Open in VS Code and run **Reopen in Container** — Postgres + Jaeger + OTel collector start automatically.
 2. Read [`CLAUDE.md`](CLAUDE.md) (AI rules) and [`docs/architecture.md`](docs/architecture.md).
-3. Browse the **User reference feature** shipped in `src/` and `tests/` — it threads the four layers end-to-end (`POST /v1/users` → `CreateUserUseCase` → `SqlAlchemyUserRepository` → `users` table). It is real working code: keep it as a starting point if your service has the notion of a user; remove it cleanly otherwise (see below).
+3. Browse the **User reference feature** shipped in `src/` and `tests/` — it threads the four layers end-to-end (`GET /v1/users/me` → JWT `get_current_user` → `EnsureUserExistsUseCase` (idempotent find-or-create on the `subject` claim) → `SqlAlchemyUserRepository` → `users` table). It is real working code: keep it as a starting point if your service has the notion of a user; remove it cleanly otherwise (see below). The IdP integration walkthrough lives in [`docs/swagger-oauth2.md`](docs/swagger-oauth2.md).
 4. Add your first feature using the `building-a-feature` Claude skill.
 
 ### Removing the reference feature
@@ -49,7 +49,7 @@ git rm src/{{ cookiecutter.package_name }}/domain/entities/user.py \
        src/{{ cookiecutter.package_name }}/domain/value_objects/user_id.py \
        src/{{ cookiecutter.package_name }}/domain/exceptions/user.py \
        src/{{ cookiecutter.package_name }}/application/repositories/user.py \
-       src/{{ cookiecutter.package_name }}/application/use_cases/create_user.py \
+       src/{{ cookiecutter.package_name }}/application/use_cases/ensure_user_exists.py \
        src/{{ cookiecutter.package_name }}/application/dtos/user.py \
        src/{{ cookiecutter.package_name }}/infrastructure/persistence/models/user.py \
        src/{{ cookiecutter.package_name }}/infrastructure/persistence/user_repository.py \
@@ -60,8 +60,8 @@ git rm src/{{ cookiecutter.package_name }}/domain/entities/user.py \
 # Tests (6) + the migration that creates the users table (1)
 git rm tests/unit/domain/test_user.py \
        tests/unit/domain/test_email.py \
-       tests/unit/application/test_create_user_use_case.py \
-       tests/e2e/api/test_create_user_endpoint.py \
+       tests/unit/application/test_ensure_user_exists_use_case.py \
+       tests/e2e/api/test_users_me_endpoint.py \
        tests/integration/infrastructure/test_user_repository.py \
        tests/fakes/repositories/user.py \
        alembic/versions/0001_init_users.py
@@ -71,9 +71,9 @@ Then **edit four files** to drop the dangling references:
 
 | File | Drop |
 | --- | --- |
-| `tests/conftest.py` | the `user_repository` and `create_user_use_case` fixtures, and the `app.dependency_overrides[get_create_user_use_case]` line |
-| `src/{{ cookiecutter.package_name }}/presentation/api/error_handlers.py` | the `UserAlreadyExistsError`, `UserNotFoundError`, `InvalidEmailError` imports and entries in `ERROR_HTTP_MAPPING` |
-| `src/{{ cookiecutter.package_name }}/infrastructure/container.py` | `build_user_repository`, `build_create_user_use_case`, and their imports |
+| `tests/conftest.py` | the `user_repository` and `ensure_user_exists_use_case` fixtures, and the `app.dependency_overrides[get_ensure_user_exists_use_case]` / `get_or_provision_user` lines |
+| `src/{{ cookiecutter.package_name }}/presentation/api/error_handlers.py` | the `UserAlreadyExistsError`, `UserNotFoundError`, `InvalidEmailError`, `MissingProfileClaimsError` imports and entries in `ERROR_HTTP_MAPPING` |
+| `src/{{ cookiecutter.package_name }}/infrastructure/container.py` | `build_user_repository`, `build_ensure_user_exists_use_case`, and their imports |
 | `src/{{ cookiecutter.package_name }}/presentation/api/app.py` | the `users_v1` import and `app.include_router(users_v1.router)` line |
 
 Sanity-check your removal:

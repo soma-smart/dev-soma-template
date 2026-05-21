@@ -9,7 +9,7 @@
 
 Stack: Python {{ cookiecutter.python_version }}, FastAPI, SQLAlchemy 2.0 async, Alembic, structlog, OpenTelemetry. Architecture: Clean Architecture (Uncle Bob strict) with four layers — `domain`, `application`, `infrastructure`, `presentation`.
 
-The reference feature shipped in `src/` and `tests/` is the `POST /v1/users` flow (`User` entity → `CreateUserUseCase` → `SqlAlchemyUserRepository` → `users` table). Read the `onboarding-soma` skill for the file map. Projects without a user concept remove it via the README's "Removing the reference feature" runbook.
+The reference feature shipped in `src/` and `tests/` is the SSO-backed `GET /v1/users/me` flow: a verified JWT → `EnsureUserExistsUseCase` (idempotent find-or-create on the `subject` claim) → `SqlAlchemyUserRepository` → `users` table. The first authenticated call lazily provisions the row; subsequent calls reuse it. Read the `onboarding-soma` skill for the file map and `docs/swagger-oauth2.md` for the Azure / Auth0 / Keycloak app-registration walkthrough.
 
 ## When you do X, use skill Y
 

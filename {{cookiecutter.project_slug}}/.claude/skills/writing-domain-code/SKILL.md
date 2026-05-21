@@ -186,14 +186,14 @@ Following `tdd-workflow`:
 ```python
 # tests/unit/application/test_<use_case>.py
 async def test_given_<context>_when_<action>_then_raises_<error>(
-    create_user_use_case: CreateUserUseCase,
+    <use_case_fixture>: <UseCaseClass>,
 ) -> None:
     # GIVEN: setup that triggers the rule
     ...
 
     # WHEN / THEN
     with pytest.raises(InsufficientBalanceError) as excinfo:
-        await create_user_use_case.execute(...)
+        await <use_case_fixture>.execute(...)
     assert excinfo.value.code == "INSUFFICIENT_BALANCE"
 ```
 

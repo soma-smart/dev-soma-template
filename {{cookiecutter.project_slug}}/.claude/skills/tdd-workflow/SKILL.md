@@ -394,7 +394,7 @@ parametrize id.
 | `RandomSource` | `SystemRandomSource` | `SeededRandomSource(seed=0)` |
 | `UserRepository` | `SqlAlchemyUserRepository` | `InMemoryUserRepository(seed=[...])` |
 
-The root conftest exposes them as fixtures (`frozen_clock`, `sequential_ids`, `seeded_random`, `user_repository`, `create_user_use_case`).
+The root conftest exposes them as fixtures (`frozen_clock`, `sequential_ids`, `seeded_random`, `user_repository`, `ensure_user_exists_use_case`, `token_verifier`).
 
 ---
 

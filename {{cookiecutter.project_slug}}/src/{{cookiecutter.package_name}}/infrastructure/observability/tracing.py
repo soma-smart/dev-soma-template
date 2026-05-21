@@ -48,8 +48,8 @@ def traced(span_name: str) -> Callable[[Callable[P, Awaitable[R]]], Callable[P, 
     """Decorate an async callable with a custom OTel span.
 
     Usage:
-        @traced("create_user")
-        async def execute(self, input: CreateUserInput) -> CreateUserOutput: ...
+        @traced("ensure_user_exists")
+        async def execute(self, input: EnsureUserExistsInput) -> EnsureUserExistsOutput: ...
     """
 
     def decorator(func: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[R]]:

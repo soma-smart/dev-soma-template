@@ -183,7 +183,7 @@ class <Action><Noun>UseCase(UseCase[<Action><Noun>Input, <Action><Noun>Output]):
         ...
 ```
 
-User reference: `application/use_cases/create_user.py`.
+User reference: `application/use_cases/ensure_user_exists.py`.
 
 The `UseCase[TInput, TOutput]` generic surfaces input/output types at the class header. Cross-cutting concerns (OTel span, structured warning/error log on raise) are added by `_instrumented` in `infrastructure/container.py` — **never** inside the use case body.
 
@@ -370,7 +370,7 @@ If you want a different HTTP status for the same error type in different endpoin
 
 `tests/e2e/api/test_<verb>_<noun>_endpoint.py` — **1 happy + 1 critical error**. Do NOT re-test use case branches here; they are already covered at the unit level. The `client` fixture gives a `TestClient` with the in-memory Fakes pre-wired.
 
-User reference: `tests/e2e/api/test_create_user_endpoint.py`.
+User reference: `tests/e2e/api/test_users_me_endpoint.py`.
 
 ---
 
