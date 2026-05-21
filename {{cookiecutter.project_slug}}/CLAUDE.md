@@ -21,6 +21,7 @@ The reference feature shipped in `src/` and `tests/` is the SSO-backed `GET /v1/
 | Editing `src/<pkg>/domain/`, new entity, value object, exception   | `writing-domain-code`          |
 | "Add a feature", "new use case", "new endpoint"                    | `building-a-feature`           |
 | "Need a new EmailSender / Gateway / Hasher / ..."                  | `building-a-feature` (§ "Adding a new abstraction") |
+| "Test an httpx adapter", external SaaS (Stripe / Twilio / OIDC ..) | `building-a-feature` (§ "Testing external HTTP adapters") |
 | Domain events, transactions, outbox                                | `building-a-feature` (§ "Transactions and events") |
 | "Idempotency-Key", "retry safe", 409/422 idempotency               | `building-a-feature` (§ "Idempotency") |
 | "Fix a bug", "write a test", editing `tests/fakes/`                | `tdd-workflow`                 |

@@ -157,6 +157,12 @@ Outermost to innermost: `RequestId` → `AccessLog` → `BodySizeLimit` → `Req
 
 The Helm chart ships a `ServiceMonitor` (gated by `metrics.enabled`) pointing at `/metrics` so a Prometheus operator picks it up automatically.
 
+### Rate limiting
+
+Intentionally **not** implemented in the application. Rate limiting belongs at the ingress / CDN layer (NGINX, Istio, Cloudflare, API Gateway) where it sees real client IPs and works correctly across multiple replicas. Application-level libraries like `slowapi` rely on per-pod in-memory counters by default — trivial to bypass in any horizontally-scaled deployment, and they require coupling to a shared store (Redis) for correctness, which is heavier than letting the ingress handle it.
+
+For business-rule throttling that genuinely depends on domain state (e.g., "5 password resets per hour per email"), implement the check inside the relevant use case — that is a domain concern, not an HTTP middleware concern.
+
 ### Graceful shutdown
 
 Aligned across two layers:

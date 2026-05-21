@@ -469,6 +469,78 @@ Common legitimate new abstractions:
 
 ---
 
+# Testing external HTTP adapters
+
+For an adapter that calls a SaaS we **cannot self-host** (Stripe, Twilio, OpenAI, Auth0, a partner webhook…), testcontainers doesn't help. The canonical pattern for the template is **`respx`** in integration tests. Unit tests still use a Fake (`tests/fakes/<role>.py`); `respx` is *only* for the integration test that exercises the real adapter against intercepted HTTP.
+
+## Why respx, not VCR or pytest-httpx
+
+- **Explicit response shapes** — the test declares what the external API is supposed to return. When the SaaS changes its contract, the test fails on the diff and you see it in PR review. VCR re-records silently and masks the drift.
+- **Outbound assertions** — `respx_mock["my_route"].calls.last.request.json()` lets you check the payload your adapter sends, which is the primary thing an integration test for an outbound adapter should verify.
+- **Route matchers** — respx has richer route definition than pytest-httpx (URL patterns, header matchers, named routes). For a template that ships generic patterns, the more expressive API ages better.
+
+The honest tradeoff: respx tests don't catch API additions (a new optional field the SaaS started returning that your code now silently ignores). Mitigation belongs in a contract-test workflow that hits the real sandbox on a cron, orthogonal to PR-time tests.
+
+## Install on first need
+
+The template does not embark `respx` until an adapter actually needs it. When you add the first such adapter:
+
+```bash
+uv add --dev respx
+```
+
+## Pattern
+
+```python
+# tests/integration/infrastructure/test_stripe_payment_gateway.py
+import httpx
+import pytest
+import respx
+
+from {{ cookiecutter.package_name }}.application.dtos.payment import ChargeInput
+from {{ cookiecutter.package_name }}.infrastructure.gateways.stripe_payment_gateway import (
+    StripePaymentGateway,
+)
+
+
+@pytest.mark.integration
+@respx.mock(base_url="https://api.stripe.com")
+async def test_given_valid_charge_when_charging_then_posts_payload_and_returns_charge_id(
+    respx_mock: respx.MockRouter,
+) -> None:
+    # GIVEN: the Stripe sandbox accepts the charge
+    route = respx_mock.post("/v1/charges").mock(
+        return_value=httpx.Response(200, json={"id": "ch_123", "status": "succeeded"})
+    )
+    gateway = StripePaymentGateway(api_key="sk_test_xxx", client=httpx.AsyncClient())
+
+    # WHEN
+    charge_id = await gateway.charge(ChargeInput(amount_cents=4200, currency="EUR"))
+
+    # THEN: returns the upstream id
+    assert charge_id == "ch_123"
+    # THEN: sent the expected payload (this is the actual contract being verified)
+    assert route.called
+    assert route.calls.last.request.headers["Authorization"] == "Bearer sk_test_xxx"
+    assert route.calls.last.request.content == b"amount=4200&currency=EUR"
+```
+
+Two assertions in one test on purpose: the integration test for an outbound adapter is verifying **both** the response parsing AND the request shaping — those are the same contract.
+
+## Failure cases
+
+Each independent failure path is its own test (one test, one reason to fail):
+
+- The SaaS returns a known error code → adapter raises the typed `DomainError`. Mock returns `httpx.Response(402, json={"error": ...})`, test asserts on the raised exception.
+- The SaaS is unreachable → `httpx.ConnectError`. respx supports `route.mock(side_effect=httpx.ConnectError("boom"))`. Adapter must wrap it in a `DomainError` (e.g. `PaymentGatewayUnavailableError`).
+- The response is malformed → mock returns invalid JSON. Adapter must raise, not silently return `None`.
+
+## Where the Fake lives
+
+Unit tests for the use case never touch respx — they get a `FakeStripePaymentGateway` from `tests/fakes/payment_gateway.py` injected via the container override. The Fake stores submitted charges in a list and accepts `accept_charge(id="ch_test")` / `reject_with(error_code="card_declined")` knobs. The integration test above is the **only** place the real `StripePaymentGateway` runs.
+
+---
+
 # Transactions and events
 
 ## Transaction boundary — one HTTP request = one transaction
