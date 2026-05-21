@@ -25,6 +25,7 @@ class FakeTokenVerifier:
         *,
         subject: str = "test-subject",
         email: str | None = "test@example.com",
+        name: str | None = "Test User",
         roles: tuple[str, ...] = (),
     ) -> CurrentUser:
         """Register ``token`` to resolve to a synthetic ``CurrentUser``.
@@ -32,7 +33,7 @@ class FakeTokenVerifier:
         Returns the resolved ``CurrentUser`` so the test can refer to it for
         assertions without re-instantiating.
         """
-        user = CurrentUser(subject=subject, email=email, roles=roles)
+        user = CurrentUser(subject=subject, email=email, name=name, roles=roles)
         self._users[token] = user
         return user
 

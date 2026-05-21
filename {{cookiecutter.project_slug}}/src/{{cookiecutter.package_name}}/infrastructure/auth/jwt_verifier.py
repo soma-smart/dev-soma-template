@@ -77,9 +77,13 @@ class JwtTokenVerifier:
         email_value = claims.get("email")
         email = email_value if isinstance(email_value, str) else None
 
+        name_value = claims.get("name")
+        name = name_value if isinstance(name_value, str) else None
+
         return CurrentUser(
             subject=subject,
             email=email,
+            name=name,
             roles=_extract_roles(claims, self._roles_claim),
             claims=claims,
         )

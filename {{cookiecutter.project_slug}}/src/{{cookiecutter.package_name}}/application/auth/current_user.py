@@ -19,13 +19,15 @@ class CurrentUser(ValueObject):
     ``realm_access.roles`` for Keycloak, ``"https://<ns>/roles"`` for Auth0).
     The path is configurable in ``infrastructure/auth/jwt_verifier.py``.
 
-    ``email`` is best-effort: not every IdP issues an email claim, so it is
-    optional and never relied upon for identity decisions. Use ``subject``
-    for that.
+    ``email`` and ``name`` are best-effort: not every IdP issues them by
+    default (Azure AD requires the ``email`` / ``profile`` scopes; Auth0
+    namespaces custom claims). They are optional and never relied upon
+    for identity decisions — use ``subject`` for that.
 
     Attributes:
         subject: stable opaque identifier from the IdP (``sub`` claim).
         email: optional email associated with the principal.
+        name: optional display name associated with the principal.
         roles: authz roles attached to the principal.
         claims: full raw claims dict — for projects that need access to
             non-standard IdP claims without altering this VO.
@@ -33,6 +35,7 @@ class CurrentUser(ValueObject):
 
     subject: str
     email: str | None = None
+    name: str | None = None
     roles: tuple[str, ...] = ()
     claims: dict[str, object] = field(default_factory=dict)
 
