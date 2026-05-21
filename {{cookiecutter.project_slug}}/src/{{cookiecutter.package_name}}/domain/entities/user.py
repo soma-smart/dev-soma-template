@@ -15,13 +15,28 @@ class User(Entity[UserId]):
     Identity-based equality (``__eq__`` / ``__hash__``) is inherited from
     ``Entity[UserId]``. Mutations go through named methods, never direct
     attribute assignment.
+
+    ``subject`` is the stable identifier issued by the IdP (the JWT
+    ``sub`` claim). It is unique per user and used by
+    ``EnsureUserExistsUseCase`` to map a JWT to its persisted ``User``
+    row on every authenticated request. ``id`` remains an internal UUID
+    so an IdP migration does not break references.
     """
 
-    def __init__(self, *, id: UserId, email: Email, name: str, created_at: datetime) -> None:
+    def __init__(
+        self,
+        *,
+        id: UserId,
+        subject: str,
+        email: Email,
+        name: str,
+        created_at: datetime,
+    ) -> None:
         self.id = id
+        self.subject = subject
         self.email = email
         self.name = name
         self.created_at = created_at
 
     def __repr__(self) -> str:
-        return f"User(id={self.id!r}, email={self.email!r})"
+        return f"User(id={self.id!r}, subject={self.subject!r})"

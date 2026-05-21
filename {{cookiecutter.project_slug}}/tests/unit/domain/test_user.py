@@ -12,9 +12,16 @@ from {{ cookiecutter.package_name }}.domain.value_objects.email import Email
 from {{ cookiecutter.package_name }}.domain.value_objects.user_id import UserId
 
 
-def _user(*, uid: int = 1, email: str = "alice@example.com", name: str = "Alice") -> User:
+def _user(
+    *,
+    uid: int = 1,
+    subject: str = "azure-sub-1",
+    email: str = "alice@example.com",
+    name: str = "Alice",
+) -> User:
     return User(
         id=UserId(UUID(int=uid)),
+        subject=subject,
         email=Email(email),
         name=name,
         created_at=datetime(2026, 5, 5, tzinfo=UTC),

@@ -35,3 +35,19 @@ class InsufficientPermissionsError(DomainError):
 
     code = "AUTH_INSUFFICIENT_PERMISSIONS"
     default_message = "You do not have permission to perform this action."
+
+
+class MissingProfileClaimsError(DomainError):
+    """Raised when the JWT lacks the profile claims required to provision a User.
+
+    The SSO auto-provisioning path requires ``email`` and ``name`` claims
+    in the verified JWT. If the IdP does not issue them (typical when the
+    Azure / Auth0 / Okta app is missing the ``email`` or ``profile``
+    scope), the request is treated as invalid identity — the caller
+    cannot be mapped to a persisted ``User`` row.
+    """
+
+    code = "AUTH_MISSING_PROFILE_CLAIMS"
+    default_message = (
+        "The bearer token is missing required profile claims (email, name)."
+    )

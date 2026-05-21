@@ -25,7 +25,9 @@ from {{ cookiecutter.package_name }}.application.id_generator import IdGenerator
 from {{ cookiecutter.package_name }}.application.random_source import RandomSource
 from {{ cookiecutter.package_name }}.application.repositories.user import UserRepository
 from {{ cookiecutter.package_name }}.application.use_cases.base import UseCase
-from {{ cookiecutter.package_name }}.application.use_cases.create_user import CreateUserUseCase
+from {{ cookiecutter.package_name }}.application.use_cases.ensure_user_exists import (
+    EnsureUserExistsUseCase,
+)
 from {{ cookiecutter.package_name }}.domain.exceptions.base import DomainError
 from {{ cookiecutter.package_name }}.infrastructure.auth.jwt_verifier import JwtTokenVerifier
 from {{ cookiecutter.package_name }}.infrastructure.clock import SystemClock
@@ -94,16 +96,18 @@ def build_event_bus(session: AsyncSession) -> EventBus:
     return SqlOutboxEventBus(session)
 
 
-def build_create_user_use_case(
+def build_ensure_user_exists_use_case(
     *,
     users: UserRepository,
     clock: Clock,
     ids: IdGenerator,
     events: EventBus,
-) -> CreateUserUseCase:
-    """Construct ``CreateUserUseCase`` with cross-cutting tracing + logging."""
-    use_case = CreateUserUseCase(users=users, clock=clock, ids=ids, events=events)
-    return _instrumented(use_case, span_name="create_user")
+) -> EnsureUserExistsUseCase:
+    """Construct ``EnsureUserExistsUseCase`` with cross-cutting tracing + logging."""
+    use_case = EnsureUserExistsUseCase(
+        users=users, clock=clock, ids=ids, events=events
+    )
+    return _instrumented(use_case, span_name="ensure_user_exists")
 
 
 def _instrumented[U: UseCase[Any, Any]](use_case: U, *, span_name: str) -> U:

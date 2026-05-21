@@ -22,9 +22,14 @@ class InMemoryUserRepository(UserRepository):
         self.users: dict[UserId, User] = {u.id: u for u in seed}
 
     async def add(self, user: User) -> None:
+        if any(u.subject == user.subject for u in self.users.values()):
+            raise UserAlreadyExistsError(subject=user.subject)
         if any(u.email == user.email for u in self.users.values()):
             raise UserAlreadyExistsError(email=str(user.email))
         self.users[user.id] = user
+
+    async def find_by_subject(self, subject: str) -> User | None:
+        return next((u for u in self.users.values() if u.subject == subject), None)
 
     async def find_by_email(self, email: Email) -> User | None:
         return next((u for u in self.users.values() if u.email == email), None)

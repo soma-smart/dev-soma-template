@@ -26,7 +26,15 @@ class SqlAlchemyUserRepository(UserRepository):
         try:
             await self._session.flush()
         except IntegrityError as exc:
-            raise UserAlreadyExistsError(email=str(user.email)) from exc
+            raise UserAlreadyExistsError(
+                subject=user.subject, email=str(user.email)
+            ) from exc
+
+    async def find_by_subject(self, subject: str) -> User | None:
+        """Return the user matching ``subject`` or ``None``."""
+        stmt = select(UserModel).where(UserModel.subject == subject)
+        model = (await self._session.execute(stmt)).scalar_one_or_none()
+        return self._to_entity(model) if model is not None else None
 
     async def find_by_email(self, email: Email) -> User | None:
         """Return the user matching ``email`` or ``None``."""
@@ -43,6 +51,7 @@ class SqlAlchemyUserRepository(UserRepository):
     def _to_model(user: User) -> UserModel:
         return UserModel(
             id=user.id.value,
+            subject=user.subject,
             email=str(user.email),
             name=user.name,
             created_at=user.created_at,
@@ -52,6 +61,7 @@ class SqlAlchemyUserRepository(UserRepository):
     def _to_entity(model: UserModel) -> User:
         return User(
             id=UserId(model.id),
+            subject=model.subject,
             email=Email(model.email),
             name=model.name,
             created_at=model.created_at,

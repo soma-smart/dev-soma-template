@@ -18,6 +18,7 @@ from opentelemetry import trace
 from {{ cookiecutter.package_name }}.domain.exceptions.auth import (
     InsufficientPermissionsError,
     InvalidTokenError,
+    MissingProfileClaimsError,
     MissingTokenError,
 )
 from {{ cookiecutter.package_name }}.domain.exceptions.base import DomainError
@@ -33,6 +34,7 @@ ERROR_HTTP_MAPPING: dict[type[DomainError], int] = {
     MissingTokenError: status.HTTP_401_UNAUTHORIZED,
     InvalidTokenError: status.HTTP_401_UNAUTHORIZED,
     InsufficientPermissionsError: status.HTTP_403_FORBIDDEN,
+    MissingProfileClaimsError: status.HTTP_401_UNAUTHORIZED,
     # Concrete subclasses are added by their owning bounded context.
     # The mapping is checked by tests/unit/presentation/test_error_mapping.py.
 }

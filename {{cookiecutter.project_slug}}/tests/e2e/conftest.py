@@ -1,10 +1,10 @@
 """E2E-layer conftest — FastAPI ``TestClient`` with Fakes pre-wired.
 
-The ``app`` fixture overrides the production dependencies for the User
-use case and the database session with the Fakes from the root
-conftest. Tests that need a different wiring (e.g. simulate a DB outage
-on ``/health/ready``) override the dependency on the returned app
-instance directly.
+The ``app`` fixture overrides the production dependencies for the SSO
+auto-provisioning use case and the database session with the Fakes from
+the root conftest. Tests that need a different wiring (e.g. simulate a
+DB outage on ``/health/ready``) override the dependency on the returned
+app instance directly.
 """
 
 from __future__ import annotations
@@ -16,12 +16,18 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from {{ cookiecutter.package_name }}.application.use_cases.create_user import CreateUserUseCase
-from {{ cookiecutter.package_name }}.presentation.api.app import create_app
-from {{ cookiecutter.package_name }}.presentation.api.dependencies.auth import get_token_verifier
-from {{ cookiecutter.package_name }}.presentation.api.dependencies.common import get_session
-from {{ cookiecutter.package_name }}.presentation.api.dependencies.users import get_create_user_use_case
 from tests.fakes.auth import FakeTokenVerifier
+from {{ cookiecutter.package_name }}.application.use_cases.ensure_user_exists import (
+    EnsureUserExistsUseCase,
+)
+from {{ cookiecutter.package_name }}.presentation.api.app import create_app
+from {{ cookiecutter.package_name }}.presentation.api.dependencies.auth import (
+    get_token_verifier,
+)
+from {{ cookiecutter.package_name }}.presentation.api.dependencies.common import get_session
+from {{ cookiecutter.package_name }}.presentation.api.dependencies.users import (
+    get_ensure_user_exists_use_case,
+)
 
 
 class StubAsyncSession:
@@ -46,13 +52,15 @@ def stub_session() -> StubAsyncSession:
 
 @pytest.fixture
 def app(
-    create_user_use_case: CreateUserUseCase,
+    ensure_user_exists_use_case: EnsureUserExistsUseCase,
     stub_session: StubAsyncSession,
     token_verifier: FakeTokenVerifier,
 ) -> FastAPI:
-    """FastAPI app with the User use case, DB session, and token verifier overridden by Fakes."""
+    """FastAPI app with the SSO use case, DB session, and token verifier overridden by Fakes."""
     app = create_app()
-    app.dependency_overrides[get_create_user_use_case] = lambda: create_user_use_case
+    app.dependency_overrides[get_ensure_user_exists_use_case] = (
+        lambda: ensure_user_exists_use_case
+    )
     app.dependency_overrides[get_token_verifier] = lambda: token_verifier
 
     async def _session_override() -> AsyncIterator[AsyncSession]:

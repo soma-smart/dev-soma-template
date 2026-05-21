@@ -17,6 +17,9 @@ class UserModel(Base):
     __tablename__ = "users"
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
+    # IdP-issued ``sub`` claim — primary lookup key on every authenticated
+    # request (see ``EnsureUserExistsUseCase``). UNIQUE + indexed.
+    subject: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
