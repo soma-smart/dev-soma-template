@@ -481,13 +481,32 @@ For an adapter that calls a SaaS we **cannot self-host** (Stripe, Twilio, OpenAI
 
 The honest tradeoff: respx tests don't catch API additions (a new optional field the SaaS started returning that your code now silently ignores). Mitigation belongs in a contract-test workflow that hits the real sandbox on a cron, orthogonal to PR-time tests.
 
-## Install on first need
+## Already embarked
 
-The template does not embark `respx` until an adapter actually needs it. When you add the first such adapter:
+`respx` is in the template's dev dependencies — use it for any adapter
+you write with `httpx`.
 
-```bash
-uv add --dev respx
+## Edge case: third-party libs that bypass httpx
+
+`respx` only intercepts `httpx`. Some third-party libraries make their
+own HTTP calls through `urllib` / `requests` / `aiohttp` and respx
+cannot see them. The template's `PyJWKClient` (RS256 JWKS fetcher,
+shipped by PyJWT) is one such case — it uses `urllib`. The right tool
+there is `monkeypatch` on the lib's fetcher boundary:
+
+```python
+from jwt import PyJWKClient
+
+def test_...(monkeypatch: pytest.MonkeyPatch) -> None:
+    jwks = {"keys": [...]}
+    monkeypatch.setattr(PyJWKClient, "fetch_data", lambda _self: jwks)
 ```
+
+The reference test
+`tests/integration/infrastructure/auth/test_jwt_verifier.py::test_given_valid_rs256_token_when_verifying_then_fetches_jwks_and_returns_current_user`
+shows the full pattern. Rule of thumb: **if your code uses `httpx`,
+respx ; if the lib you depend on uses anything else, monkeypatch the
+fetcher.** Never silently let HTTP escape in a test.
 
 ## Pattern
 
