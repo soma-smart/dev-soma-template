@@ -17,4 +17,9 @@ data:
   AUTH_JWT_AUDIENCE: {{ .Values.config.authJwtAudience | quote }}
   AUTH_JWT_ISSUER: {{ .Values.config.authJwtIssuer | quote }}
   AUTH_JWT_ROLES_CLAIM: {{ .Values.config.authJwtRolesClaim | quote }}
+  SWAGGER_OAUTH2_AUTHORIZATION_URL: {{ .Values.config.swaggerOauth2AuthorizationUrl | quote }}
+  SWAGGER_OAUTH2_TOKEN_URL: {{ .Values.config.swaggerOauth2TokenUrl | quote }}
+  SWAGGER_OAUTH2_CLIENT_ID: {{ .Values.config.swaggerOauth2ClientId | quote }}
+  SWAGGER_OAUTH2_SCOPES: {{ .Values.config.swaggerOauth2Scopes | quote }}
+  SWAGGER_OAUTH2_PKCE_ENABLED: {{ .Values.config.swaggerOauth2PkceEnabled | quote }}
 {% endraw %}

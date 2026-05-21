@@ -103,6 +103,15 @@ config:
   authJwtAudience: ""              # leave empty to disable the aud check
   authJwtIssuer: ""                # leave empty to disable the iss check
   authJwtRolesClaim: "roles"       # dotted path inside the JWT claims
+  # Swagger UI OAuth2 — when BOTH AuthorizationUrl and TokenUrl are set,
+  # /docs publishes an OAuth2 Authorization Code + PKCE flow (clickable
+  # Authorize button). Otherwise falls back to HTTPBearer paste-once.
+  # See docs/swagger-oauth2.md for the IdP app-registration walkthrough.
+  swaggerOauth2AuthorizationUrl: ""
+  swaggerOauth2TokenUrl: ""
+  swaggerOauth2ClientId: ""        # ID of the SEPARATE Swagger-UI app on the IdP
+  swaggerOauth2Scopes: "openid,email,profile"
+  swaggerOauth2PkceEnabled: "true"
 
 # Secrets — by default empty; populate via a SealedSecret, ExternalSecret or
 # raw values overlay outside source control.

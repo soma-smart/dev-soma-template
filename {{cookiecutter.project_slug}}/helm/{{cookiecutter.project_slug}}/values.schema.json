@@ -36,7 +36,12 @@
         "authJwtJwksUrl": { "type": "string" },
         "authJwtAudience": { "type": "string" },
         "authJwtIssuer": { "type": "string" },
-        "authJwtRolesClaim": { "type": "string" }
+        "authJwtRolesClaim": { "type": "string" },
+        "swaggerOauth2AuthorizationUrl": { "type": "string" },
+        "swaggerOauth2TokenUrl": { "type": "string" },
+        "swaggerOauth2ClientId": { "type": "string" },
+        "swaggerOauth2Scopes": { "type": "string" },
+        "swaggerOauth2PkceEnabled": { "enum": ["true", "false"] }
       }
     },
     "secrets": {
