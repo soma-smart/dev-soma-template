@@ -17,6 +17,8 @@ Authoritative design: [`docs/superpowers/specs/2026-05-05-soma-template-v2-desig
 
 ## Generate a new project
 
+### Interactive (recommended for first use)
+
 ```bash
 # Install cookiecutter (one-time, globally or via pipx/uvx)
 uvx cookiecutter gh:soma-smart/dev-soma-template
@@ -25,6 +27,26 @@ uvx cookiecutter gh:soma-smart/dev-soma-template
 git clone git@github.com:soma-smart/dev-soma-template.git
 uvx cookiecutter ./dev-soma-template
 ```
+
+### Non-interactive (CI, scripts, repeat bakes)
+
+`cookiecutter` accepts overrides as positional `key=value` arguments
+**after** the template path. Combine with `--no-input` to skip every
+prompt and `-o <path>` to control the output directory:
+
+```bash
+uvx cookiecutter ./dev-soma-template --no-input \
+    -o /tmp/out \
+    project_name="Billing API" \
+    database=postgres \
+    include_helm=yes
+```
+
+Any variable not passed on the CLI uses its default from `cookiecutter.json`.
+For larger configs, point `--config-file <path>` at a YAML file with a
+`default_context:` mapping.
+
+### Variables
 
 You will be prompted for:
 
@@ -55,8 +77,18 @@ After generation, the post-hook automatically:
 ```bash
 uv sync                                       # template tooling
 uv run pytest                                 # bake tests (pytest-cookies)
-uv run cookiecutter . --no-input -o /tmp/out  # smoke-bake locally
+uv run cookiecutter . --no-input -o /tmp/out  # smoke-bake with defaults
 uv run ruff check . && uv run ruff format .
+```
+
+Bake with custom values for manual inspection — same positional
+`key=value` syntax as the user-facing flow above:
+
+```bash
+uv run cookiecutter . --no-input -o /tmp/out \
+    project_name="Smoke Bake" \
+    database=sqlite \
+    include_helm=no
 ```
 
 See [`CLAUDE.md`](CLAUDE.md) for AI-assisted editing rules.
