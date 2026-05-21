@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import pytest
 from fastapi import Request
+from fastapi.security import HTTPAuthorizationCredentials
 
+from tests.fakes.auth import FakeTokenVerifier
 from {{ cookiecutter.package_name }}.application.auth.current_user import CurrentUser
 from {{ cookiecutter.package_name }}.domain.exceptions.auth import (
     InsufficientPermissionsError,
@@ -17,7 +19,6 @@ from {{ cookiecutter.package_name }}.presentation.api.dependencies.auth import (
     get_current_user_optional,
     require_roles,
 )
-from tests.fakes.auth import FakeTokenVerifier
 
 
 def _request_with(headers: dict[str, str]) -> Request:
@@ -30,35 +31,32 @@ def _request_with(headers: dict[str, str]) -> Request:
 
 
 @pytest.mark.unit
-def test_given_valid_bearer_header_when_extracting_token_then_returns_token() -> None:
+def test_given_valid_bearer_credentials_when_extracting_token_then_returns_token() -> None:
     # GIVEN
-    request = _request_with({"Authorization": "Bearer abc.def.ghi"})
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="abc.def.ghi")
 
     # WHEN
-    token = get_bearer_token(request)
+    token = get_bearer_token(credentials)
 
     # THEN
     assert token == "abc.def.ghi"
 
 
 @pytest.mark.unit
-def test_given_missing_authorization_header_when_extracting_token_then_raises_missing_token() -> None:
-    # GIVEN
-    request = _request_with({})
-
+def test_given_no_credentials_when_extracting_token_then_raises_missing_token() -> None:
     # WHEN / THEN
     with pytest.raises(MissingTokenError):
-        get_bearer_token(request)
+        get_bearer_token(None)
 
 
 @pytest.mark.unit
 def test_given_non_bearer_scheme_when_extracting_token_then_raises_missing_token() -> None:
     # GIVEN
-    request = _request_with({"Authorization": "Basic dXNlcjpwYXNz"})
+    credentials = HTTPAuthorizationCredentials(scheme="Basic", credentials="dXNlcjpwYXNz")
 
     # WHEN / THEN
     with pytest.raises(MissingTokenError):
-        get_bearer_token(request)
+        get_bearer_token(credentials)
 
 
 @pytest.mark.unit

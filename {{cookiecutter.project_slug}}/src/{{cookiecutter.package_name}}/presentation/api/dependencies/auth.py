@@ -15,7 +15,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from fastapi import Depends, Request
+from fastapi import Depends, Request, Security
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from {{ cookiecutter.package_name }}.application.auth.current_user import CurrentUser
 from {{ cookiecutter.package_name }}.application.auth.token_verifier import TokenVerifier
@@ -26,25 +27,43 @@ from {{ cookiecutter.package_name }}.domain.exceptions.auth import (
 from {{ cookiecutter.package_name }}.infrastructure.config.settings import Settings, get_settings
 from {{ cookiecutter.package_name }}.infrastructure.container import build_token_verifier
 
+# ``HTTPBearer`` is declared as a Security scheme so FastAPI publishes it
+# in the OpenAPI document — Swagger UI then renders an "Authorize" button
+# where devs paste their JWT once per session. ``auto_error=False`` keeps
+# our own ``MissingTokenError`` path: FastAPI does not raise its own
+# ``HTTPException`` on missing/malformed headers, so the error mapping in
+# ``error_handlers.py`` stays the single source of truth.
+_bearer_scheme = HTTPBearer(
+    bearerFormat="JWT",
+    description="Paste the JWT issued by your IdP (Azure AD, Auth0, Keycloak…).",
+    auto_error=False,
+)
+
 
 def get_token_verifier(settings: Settings = Depends(get_settings)) -> TokenVerifier:
     """Inject the production ``TokenVerifier``."""
     return build_token_verifier(settings)
 
 
-def get_bearer_token(request: Request) -> str:
-    """Extract the bearer token from the ``Authorization`` header.
+def get_bearer_token(
+    credentials: HTTPAuthorizationCredentials | None = Security(_bearer_scheme),
+) -> str:
+    """Extract the bearer token via the OpenAPI-declared ``HTTPBearer`` scheme.
+
+    Using ``Security(HTTPBearer(...))`` instead of reading the header by
+    hand registers the scheme in the OpenAPI document — Swagger UI renders
+    the "Authorize" button automatically. ``auto_error=False`` lets us
+    keep raising ``MissingTokenError`` so the error mapping stays
+    consistent with the rest of the auth chain.
 
     Raises:
         MissingTokenError: header absent or not in ``Bearer <token>`` form.
     """
-    header = request.headers.get("Authorization") or request.headers.get("authorization")
-    if not header:
+    if credentials is None:
         raise MissingTokenError()
-    scheme, _, token = header.partition(" ")
-    if scheme.lower() != "bearer" or not token:
+    if credentials.scheme.lower() != "bearer" or not credentials.credentials:
         raise MissingTokenError(reason="malformed_authorization_header")
-    return token
+    return credentials.credentials
 
 
 def get_current_user(
