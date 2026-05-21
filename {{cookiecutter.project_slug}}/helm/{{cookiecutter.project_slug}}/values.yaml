@@ -96,6 +96,18 @@ config:
   otelExporterOtlpEndpoint: ""
   otelTracesSamplerArg: "0.1"
   corsAllowedOrigins: ""
+  # Database connection pool — tune per environment based on the expected
+  # concurrent request count vs. the database's max_connections budget.
+  dbPoolSize: "10"
+  dbPoolMaxOverflow: "5"
+  dbPoolTimeout: "30"               # seconds to wait for a free connection
+  # HTTP middleware — request body size cap and per-request timeout.
+  requestMaxBodyBytes: "1048576"    # 1 MiB
+  requestTimeoutSeconds: "30"
+  # Idempotency middleware (see building-a-feature § "Idempotency").
+  idempotencyEnabled: "true"
+  idempotencyMethods: "POST,PUT,PATCH,DELETE"
+  idempotencyTtlSeconds: "86400"    # 24h
   # Auth — bearer-JWT verification. See the ``adding-auth`` skill for the
   # swap path to a real IdP.
   authJwtAlgorithm: "HS256"        # HS256 | RS256
