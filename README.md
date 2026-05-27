@@ -60,7 +60,6 @@ You will be prompted for:
 | `database`             | `postgres`            | `postgres` (full) or `sqlite` (light)               |
 | `include_helm`         | `yes`                 | Ship a Helm chart                                   |
 | `include_otel`         | `yes`                 | Wire OpenTelemetry instrumentations                 |
-| `include_cli`          | `no`                  | Add a `presentation/cli/` layer                     |
 | `license`              | `proprietary`         | `proprietary`, `MIT`, `Apache-2.0`                  |
 
 After generation, the post-hook automatically:

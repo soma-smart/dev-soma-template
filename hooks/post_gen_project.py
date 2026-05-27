@@ -1,7 +1,7 @@
 """Cookiecutter post-generation hook.
 
 Runs after the project is generated to:
-  1. Conditionally remove optional directories (helm/, presentation/cli/, etc.)
+  1. Conditionally remove optional directories (helm/, openapi exporter, etc.)
   2. Copy .env.example -> .env
   3. Initialize git
   4. uv sync --group dev
@@ -22,7 +22,6 @@ from pathlib import Path
 PROJECT_ROOT = Path.cwd()
 INCLUDE_HELM = "{{ cookiecutter.include_helm }}" == "yes"
 INCLUDE_OTEL = "{{ cookiecutter.include_otel }}" == "yes"
-INCLUDE_CLI = "{{ cookiecutter.include_cli }}" == "yes"
 FRONTEND_SDK = "{{ cookiecutter.frontend_sdk }}"
 DATABASE = "{{ cookiecutter.database }}"
 PACKAGE_NAME = "{{ cookiecutter.package_name }}"
@@ -58,8 +57,6 @@ def run(*command: str) -> bool:
 def remove_optional_components() -> None:
     if not INCLUDE_HELM:
         remove_path("helm")
-    if not INCLUDE_CLI:
-        remove_path(f"src/{PACKAGE_NAME}/presentation/cli")
     if not INCLUDE_OTEL:
         info("OTel disabled: kept the observability module so you can wire it later.")
     if FRONTEND_SDK == "none":
