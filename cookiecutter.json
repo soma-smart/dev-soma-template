@@ -14,19 +14,19 @@
   "swagger_auth_scheme": ["http_bearer", "oauth2_auth_code"],
   "license": ["proprietary", "MIT", "Apache-2.0"],
   "__prompts__": {
-    "project_name": "Human-readable project name",
-    "project_slug": "Folder + repo slug (kebab-case, derived)",
-    "package_name": "Importable Python package (snake_case, derived)",
-    "project_description": "One-liner description",
-    "author_name": "Author or team",
-    "author_email": "Contact email",
-    "python_version": "Target Python version",
-    "database": "Database engine: postgres (full) or sqlite (light). The reference feature is persisted; for a DB-less service, bake with postgres and follow the README 'Removing the reference feature' runbook.",
-    "include_helm": "Ship a Helm chart for Kubernetes deployment?",
-    "include_otel": "Wire OpenTelemetry instrumentations?",
-    "include_cli": "Add a presentation/cli/ layer?",
-    "frontend_sdk": "Client SDK generation: 'none' (no JS frontend), 'typescript' (ships scripts/export_openapi.py + sdk-typescript.yml workflow)",
-    "swagger_auth_scheme": "Auth UX in Swagger UI: 'http_bearer' (paste a token, dev-friendly with HS256 secret), 'oauth2_auth_code' (one-click redirect to your IdP, requires an app registration). Code ships both schemes — this controls the .env.example defaults and the README focus only.",
-    "license": "Project license"
+    "project_name": "Nom du projet (lisible, ex: 'Billing API')",
+    "project_slug": "Auto-généré depuis le nom — utilisé pour le dossier et l'URL du repo",
+    "package_name": "Auto-généré depuis le slug — ce que tu importes en Python",
+    "project_description": "Une phrase qui dit ce que le service fait (apparaît dans le README et l'OpenAPI)",
+    "author_name": "Toi ou ton équipe",
+    "author_email": "Email de contact",
+    "python_version": "Version de Python visée",
+    "database": "Moteur de base de données. SOMA utilise sqlite dans le devcontainer (léger, pas de serveur à lancer en local) et postgres pour le déploiement via Helm.",
+    "include_helm": "Générer la config pour rendre l'application disponible à SOMA",
+    "include_otel": "Activer le tracing + les métriques (OpenTelemetry) pour voir ce qui se passe en prod (requêtes lentes, erreurs externes, etc.) ?",
+    "include_cli": "Pouvoir appeler la logique du service depuis le terminal en plus de l'API HTTP ? Utile pour des scripts d'ops, des tâches cron, du debug rapide. 'no' = HTTP uniquement.",
+    "frontend_sdk": "Si un frontend (React, Vue, etc.) va consommer ton API, mets 'typescript' : une lib cliente typée est générée et publiée à chaque push. 'none' si pas de frontend JS.",
+    "swagger_auth_scheme": "Comment un dev se connecte quand il essaie l'API depuis Swagger UI : 'http_bearer' = il colle un token à la main (marche avec n'importe quel fournisseur, accepte aussi des tokens de dev) ; 'oauth2_auth_code' = bouton 'Login with <ton IdP>' en un clic (marche uniquement avec l'IdP que tu auras enregistré — ex : Azure AD pour soma-smart.com). Le code supporte les deux ; ce choix ne change que l'expérience par défaut dans Swagger.",
+    "license": "Qui a le droit d'utiliser le code : 'proprietary' = SOMA uniquement, pas de partage externe (défaut, choix sûr pour un service interne) ; 'MIT' = très permissive, tout le monde peut utiliser/modifier/revendre sans contrainte (pour une lib open source simple) ; 'Apache-2.0' = permissive comme MIT mais avec une clause explicite sur les brevets (à choisir pour de l'open source qui touche à des algos / brevets)."
   }
 }
