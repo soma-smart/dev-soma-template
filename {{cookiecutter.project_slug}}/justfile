@@ -73,8 +73,23 @@ typecheck:
 
 # ─── Database ───────────────────────────────────────────────────────
 # Apply all pending migrations.
+# Retries a few times: at first devcontainer startup, Docker DNS may not
+# have fully propagated the postgres service hostname yet when this runs
+# from postStartCommand. 6 × 2s = 12s of patience — beyond that, treat
+# as a real Postgres outage and surface the error.
 migrate:
-    uv run alembic upgrade head
+    #!/usr/bin/env bash
+    set -e
+    i=0
+    until uv run alembic upgrade head; do
+        i=$((i+1))
+        if [ $i -ge 6 ]; then
+            echo "alembic upgrade head failed after 6 retries — is postgres reachable?" >&2
+            exit 1
+        fi
+        echo "alembic retrying in 2s (attempt $i/6)..."
+        sleep 2
+    done
 
 {% raw %}# Generate a new revision from current model state. Pass a short description.
 # Example: just migration "add_subscriptions_table"
