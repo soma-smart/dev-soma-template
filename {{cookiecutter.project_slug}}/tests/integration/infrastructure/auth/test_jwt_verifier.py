@@ -80,9 +80,7 @@ def test_given_valid_hs256_token_when_verifying_then_returns_current_user() -> N
     user = verifier.verify(token)
 
     # THEN
-    assert user.subject == "alice"
-    assert user.email == "alice@example.com"
-    assert user.roles == ("admin",)
+    assert (user.subject, user.email, user.roles) == ("alice", "alice@example.com", ("admin",))
 
 
 @pytest.mark.integration
@@ -194,6 +192,4 @@ def test_given_valid_rs256_token_when_verifying_then_fetches_jwks_and_returns_cu
     user = verifier.verify(token)
 
     # THEN
-    assert user.subject == "alice"
-    assert user.email == "alice@example.com"
-    assert user.name == "Alice Liddell"
+    assert (user.subject, user.email, user.name) == ("alice", "alice@example.com", "Alice Liddell")

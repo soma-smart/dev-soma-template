@@ -8,7 +8,7 @@ from {{ cookiecutter.package_name }}.domain.value_objects.email import Email, In
 
 
 @pytest.mark.unit
-def test_given_valid_address_when_constructing_email_then_normalises_to_lowercase() -> None:
+def test_given_valid_address_when_constructing_email_then_value_is_lowercased() -> None:
     # GIVEN
     raw = "Alice@Example.COM"
 
@@ -17,6 +17,17 @@ def test_given_valid_address_when_constructing_email_then_normalises_to_lowercas
 
     # THEN
     assert email.value == "alice@example.com"
+
+
+@pytest.mark.unit
+def test_given_valid_address_when_constructing_email_then_str_is_lowercased() -> None:
+    # GIVEN
+    raw = "Alice@Example.COM"
+
+    # WHEN
+    email = Email(raw)
+
+    # THEN
     assert str(email) == "alice@example.com"
 
 

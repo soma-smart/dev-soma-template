@@ -21,8 +21,7 @@ def test_given_running_app_when_calling_live_then_returns_200(client: TestClient
     response = client.get("/health/live")
 
     # THEN
-    assert response.status_code == 200
-    assert response.json() == {"status": "live"}
+    assert (response.status_code, response.json()) == (200, {"status": "live"})
 
 
 @pytest.mark.e2e
@@ -31,8 +30,7 @@ def test_given_db_reachable_when_calling_ready_then_returns_200(client: TestClie
     response = client.get("/health/ready")
 
     # THEN
-    assert response.status_code == 200
-    assert response.json() == {"status": "ready"}
+    assert (response.status_code, response.json()) == (200, {"status": "ready"})
 
 
 @pytest.mark.e2e
@@ -49,8 +47,10 @@ def test_given_db_unreachable_when_calling_ready_then_returns_503(app: FastAPI, 
     response = client.get("/health/ready")
 
     # THEN
-    assert response.status_code == 503
-    assert response.json() == {"status": "not_ready", "reason": "database_unreachable"}
+    assert (response.status_code, response.json()) == (
+        503,
+        {"status": "not_ready", "reason": "database_unreachable"},
+    )
 
 
 @pytest.mark.e2e
@@ -59,5 +59,4 @@ def test_given_db_reachable_when_calling_startup_then_returns_200(client: TestCl
     response = client.get("/health/startup")
 
     # THEN
-    assert response.status_code == 200
-    assert response.json() == {"status": "started"}
+    assert (response.status_code, response.json()) == (200, {"status": "started"})

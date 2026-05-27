@@ -53,36 +53,33 @@ def _user(
 
 
 @pytest.mark.integration
-async def test_given_empty_db_when_adding_user_then_persists_and_finds_by_id(
+async def test_given_empty_db_when_adding_user_then_find_by_id_round_trips_subject(
     pg_session: AsyncSession,
 ) -> None:
     # GIVEN
     repo = SqlAlchemyUserRepository(pg_session)
-    user = _user()
+    await repo.add(_user(uid=1, subject="azure-sub-1"))
 
     # WHEN
-    await repo.add(user)
     found = await repo.find_by_id(UserId(UUID(int=1)))
 
     # THEN
-    assert found is not None
-    assert found.subject == "azure-sub-1"
+    assert (found and found.subject) == "azure-sub-1"
 
 
 @pytest.mark.integration
-async def test_given_persisted_user_when_finding_by_subject_then_returns_user(
+async def test_given_persisted_user_when_finding_by_subject_then_returns_matching_id(
     pg_session: AsyncSession,
 ) -> None:
     # GIVEN
     repo = SqlAlchemyUserRepository(pg_session)
-    await repo.add(_user(subject="azure-sub-42"))
+    await repo.add(_user(uid=1, subject="azure-sub-42"))
 
     # WHEN
     found = await repo.find_by_subject("azure-sub-42")
 
     # THEN
-    assert found is not None
-    assert found.id == UserId(UUID(int=1))
+    assert (found and found.id) == UserId(UUID(int=1))
 
 
 @pytest.mark.integration

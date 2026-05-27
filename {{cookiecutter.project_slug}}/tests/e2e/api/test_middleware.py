@@ -14,18 +14,15 @@ from fastapi.testclient import TestClient
 
 
 @pytest.mark.e2e
-def test_given_request_without_request_id_when_completing_then_response_has_generated_id(
+def test_given_request_without_request_id_when_completing_then_response_has_generated_32_char_id(
     client: TestClient,
 ) -> None:
     # GIVEN: client without any custom header
     # WHEN
     response = client.get("/health/live")
 
-    # THEN
-    assert response.status_code == 200
-    assert "X-Request-ID" in response.headers
-    # UUID4 hex form is 32 lowercase hex chars
-    assert len(response.headers["X-Request-ID"]) == 32
+    # THEN: UUID4 hex form is 32 lowercase hex chars; len == 32 implies presence
+    assert len(response.headers.get("X-Request-ID", "")) == 32
 
 
 @pytest.mark.e2e
@@ -39,12 +36,13 @@ def test_given_request_with_request_id_when_completing_then_id_is_echoed(
     response = client.get("/health/live", headers={"X-Request-ID": upstream_id})
 
     # THEN
-    assert response.status_code == 200
     assert response.headers["X-Request-ID"] == upstream_id
 
 
 @pytest.mark.e2e
-def test_given_oversized_payload_when_posting_then_returns_413(client: TestClient) -> None:
+def test_given_oversized_payload_when_posting_then_response_is_413_payload_too_large(
+    client: TestClient,
+) -> None:
     # GIVEN: request advertises a body two megabytes large (above the 1 MiB default)
     huge_size = 2 * 1024 * 1024
 
@@ -55,6 +53,8 @@ def test_given_oversized_payload_when_posting_then_returns_413(client: TestClien
         content=b"{}",
     )
 
-    # THEN
-    assert response.status_code == 413
-    assert response.json()["error"]["code"] == "PAYLOAD_TOO_LARGE"
+    # THEN: status + error code describe the same response outcome (§4b tuple equality)
+    assert (response.status_code, response.json()["error"]["code"]) == (
+        413,
+        "PAYLOAD_TOO_LARGE",
+    )

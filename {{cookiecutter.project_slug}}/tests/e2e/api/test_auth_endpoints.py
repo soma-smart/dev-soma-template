@@ -20,12 +20,10 @@ def test_given_valid_bearer_token_when_calling_whoami_then_returns_identity(
     response = client.get("/v1/auth/whoami", headers={"Authorization": "Bearer good-token"})
 
     # THEN
-    assert response.status_code == 200
-    assert response.json() == {
-        "subject": "alice",
-        "email": "alice@example.com",
-        "roles": ["admin"],
-    }
+    assert (response.status_code, response.json()) == (
+        200,
+        {"subject": "alice", "email": "alice@example.com", "roles": ["admin"]},
+    )
 
 
 @pytest.mark.e2e
@@ -38,8 +36,10 @@ def test_given_no_authorization_header_when_calling_whoami_then_returns_401(
     response = client.get("/v1/auth/whoami")
 
     # THEN
-    assert response.status_code == 401
-    assert response.json()["error"]["code"] == "AUTH_MISSING_TOKEN"
+    assert (response.status_code, response.json()["error"]["code"]) == (
+        401,
+        "AUTH_MISSING_TOKEN",
+    )
 
 
 @pytest.mark.e2e
@@ -52,8 +52,10 @@ def test_given_unknown_token_when_calling_whoami_then_returns_401(
     response = client.get("/v1/auth/whoami", headers={"Authorization": "Bearer unknown"})
 
     # THEN
-    assert response.status_code == 401
-    assert response.json()["error"]["code"] == "AUTH_INVALID_TOKEN"
+    assert (response.status_code, response.json()["error"]["code"]) == (
+        401,
+        "AUTH_INVALID_TOKEN",
+    )
 
 
 @pytest.mark.e2e

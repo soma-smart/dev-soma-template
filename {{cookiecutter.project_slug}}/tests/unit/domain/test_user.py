@@ -36,6 +36,15 @@ def test_given_two_users_with_same_id_when_comparing_then_are_equal() -> None:
 
     # WHEN / THEN
     assert a == b
+
+
+@pytest.mark.unit
+def test_given_two_users_with_same_id_when_hashing_then_hashes_are_equal() -> None:
+    # GIVEN
+    a = _user(uid=42, email="a@b.com", name="Alpha")
+    b = _user(uid=42, email="x@y.com", name="Beta")
+
+    # WHEN / THEN
     assert hash(a) == hash(b)
 
 
