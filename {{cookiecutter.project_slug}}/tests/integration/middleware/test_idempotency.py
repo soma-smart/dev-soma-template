@@ -94,30 +94,51 @@ async def _insert(session_factory: async_sessionmaker[AsyncSession], row: Idempo
 
 
 @pytest.mark.integration
-async def test_given_no_header_when_posting_then_handler_runs_and_no_row_is_persisted(
+async def test_given_no_header_when_posting_then_response_is_200_with_call_number_one(
     client: AsyncClient,
-    calls: list[str],
-    session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
     # GIVEN: no Idempotency-Key header
 
     # WHEN
     response = await client.post("/echo", json={"value": 1})
 
+    # THEN: status + body field describe the same response outcome (§4b)
+    assert (response.status_code, response.json()["call_number"]) == (200, 1)
+
+
+@pytest.mark.integration
+async def test_given_no_header_when_posting_then_handler_runs_once(
+    client: AsyncClient,
+    calls: list[str],
+) -> None:
+    # GIVEN: no Idempotency-Key header
+
+    # WHEN
+    await client.post("/echo", json={"value": 1})
+
     # THEN
-    assert response.status_code == 200
-    assert response.json()["call_number"] == 1
     assert calls == ["echo"]
+
+
+@pytest.mark.integration
+async def test_given_no_header_when_posting_then_no_idempotency_row_is_persisted(
+    client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    # GIVEN: no Idempotency-Key header
+
+    # WHEN
+    await client.post("/echo", json={"value": 1})
+
+    # THEN
     async with session_factory() as s:
         count = await s.scalar(select(func.count()).select_from(IdempotencyRecord))
     assert count == 0
 
 
 @pytest.mark.integration
-async def test_given_first_request_when_retried_with_same_key_then_handler_runs_once(
+async def test_given_first_request_when_retried_with_same_key_then_both_responses_match(
     client: AsyncClient,
-    calls: list[str],
-    session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
     # GIVEN
     key = str(uuid4())
@@ -126,38 +147,79 @@ async def test_given_first_request_when_retried_with_same_key_then_handler_runs_
     first = await client.post("/echo", json={"value": 1}, headers={"Idempotency-Key": key})
     second = await client.post("/echo", json={"value": 1}, headers={"Idempotency-Key": key})
 
-    # THEN
-    assert first.status_code == 200
-    assert second.status_code == 200
-    assert first.json() == second.json()
-    assert calls == ["echo"]  # handler ran exactly once
-    row = await _row_for(session_factory, key)
-    assert row is not None
-    assert row.status == "completed"
-    assert row.response_status == 200
+    # THEN: same (status, body) tuple on both attempts — one response observable
+    assert (first.status_code, first.json()) == (second.status_code, second.json())
 
 
 @pytest.mark.integration
-async def test_given_completed_key_when_retried_on_different_path_then_returns_422(
+async def test_given_first_request_when_retried_with_same_key_then_handler_runs_exactly_once(
     client: AsyncClient,
     calls: list[str],
 ) -> None:
     # GIVEN
     key = str(uuid4())
-    first = await client.post("/echo", json={"value": 1}, headers={"Idempotency-Key": key})
-    assert first.status_code == 200
 
     # WHEN
-    second = await client.post("/other", headers={"Idempotency-Key": key})
+    await client.post("/echo", json={"value": 1}, headers={"Idempotency-Key": key})
+    await client.post("/echo", json={"value": 1}, headers={"Idempotency-Key": key})
 
     # THEN
-    assert second.status_code == 422
-    assert second.json()["error"]["code"] == "IDEMPOTENCY_KEY_MISMATCH"
     assert calls == ["echo"]
 
 
 @pytest.mark.integration
-async def test_given_in_progress_key_when_retried_then_returns_409(
+async def test_given_first_request_when_retried_with_same_key_then_row_reaches_completed_with_status_200(
+    client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    # GIVEN
+    key = str(uuid4())
+
+    # WHEN
+    await client.post("/echo", json={"value": 1}, headers={"Idempotency-Key": key})
+    await client.post("/echo", json={"value": 1}, headers={"Idempotency-Key": key})
+    row = await _row_for(session_factory, key)
+
+    # THEN: terminal row state is one observable (status + response_status)
+    assert (row and (row.status, row.response_status)) == ("completed", 200)
+
+
+@pytest.mark.integration
+async def test_given_completed_key_when_retried_on_different_path_then_response_is_422_with_mismatch_code(
+    client: AsyncClient,
+) -> None:
+    # GIVEN
+    key = str(uuid4())
+    await client.post("/echo", json={"value": 1}, headers={"Idempotency-Key": key})
+
+    # WHEN
+    response = await client.post("/other", headers={"Idempotency-Key": key})
+
+    # THEN
+    assert (response.status_code, response.json()["error"]["code"]) == (
+        422,
+        "IDEMPOTENCY_KEY_MISMATCH",
+    )
+
+
+@pytest.mark.integration
+async def test_given_completed_key_when_retried_on_different_path_then_other_handler_does_not_run(
+    client: AsyncClient,
+    calls: list[str],
+) -> None:
+    # GIVEN
+    key = str(uuid4())
+    await client.post("/echo", json={"value": 1}, headers={"Idempotency-Key": key})
+
+    # WHEN
+    await client.post("/other", headers={"Idempotency-Key": key})
+
+    # THEN: /other handler must not have been called
+    assert calls == ["echo"]
+
+
+@pytest.mark.integration
+async def test_given_in_progress_key_when_retried_then_response_is_409_with_in_progress_code(
     client: AsyncClient,
     session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
@@ -181,8 +243,41 @@ async def test_given_in_progress_key_when_retried_then_returns_409(
     response = await client.post("/echo", json={"value": 1}, headers={"Idempotency-Key": key})
 
     # THEN
-    assert response.status_code == 409
-    assert response.json()["error"]["code"] == "IDEMPOTENCY_IN_PROGRESS"
+    assert (response.status_code, response.json()["error"]["code"]) == (
+        409,
+        "IDEMPOTENCY_IN_PROGRESS",
+    )
+
+
+@pytest.mark.integration
+async def test_given_expired_key_when_retried_then_response_is_fresh_not_stale_body(
+    client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    # GIVEN: a completed row whose TTL has already elapsed
+    key = str(uuid4())
+    now = datetime.now(tz=UTC)
+    await _insert(
+        session_factory,
+        IdempotencyRecord(
+            key=key,
+            status="completed",
+            method="POST",
+            path="/echo",
+            response_status=200,
+            response_body={"old": True},
+            response_headers={},
+            created_at=now - timedelta(hours=25),
+            completed_at=now - timedelta(hours=25),
+            expires_at=now - timedelta(seconds=1),
+        ),
+    )
+
+    # WHEN
+    response = await client.post("/echo", json={"value": 1}, headers={"Idempotency-Key": key})
+
+    # THEN: the stale {"old": True} body must not be returned
+    assert (response.status_code, "old" in response.json()) == (200, False)
 
 
 @pytest.mark.integration
@@ -211,20 +306,46 @@ async def test_given_expired_key_when_retried_then_handler_runs_again(
     )
 
     # WHEN
-    response = await client.post("/echo", json={"value": 1}, headers={"Idempotency-Key": key})
+    await client.post("/echo", json={"value": 1}, headers={"Idempotency-Key": key})
 
     # THEN
-    assert response.status_code == 200
-    assert "old" not in response.json()
     assert calls == ["echo"]
-    row = await _row_for(session_factory, key)
-    assert row is not None
-    assert row.status == "completed"
-    assert row.response_body == response.json()
 
 
 @pytest.mark.integration
-async def test_given_get_request_with_header_when_called_then_handler_always_runs(
+async def test_given_expired_key_when_retried_then_row_is_refreshed_with_new_response(
+    client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    # GIVEN: a completed row whose TTL has already elapsed
+    key = str(uuid4())
+    now = datetime.now(tz=UTC)
+    await _insert(
+        session_factory,
+        IdempotencyRecord(
+            key=key,
+            status="completed",
+            method="POST",
+            path="/echo",
+            response_status=200,
+            response_body={"old": True},
+            response_headers={},
+            created_at=now - timedelta(hours=25),
+            completed_at=now - timedelta(hours=25),
+            expires_at=now - timedelta(seconds=1),
+        ),
+    )
+
+    # WHEN
+    response = await client.post("/echo", json={"value": 1}, headers={"Idempotency-Key": key})
+    row = await _row_for(session_factory, key)
+
+    # THEN: row reset to the new response (status + body must match the live response)
+    assert (row and (row.status, row.response_body)) == ("completed", response.json())
+
+
+@pytest.mark.integration
+async def test_given_get_request_with_header_when_called_twice_then_handler_runs_each_time(
     session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
     # GIVEN: middleware configured for POST only; a GET endpoint hit twice with the same key
@@ -244,8 +365,28 @@ async def test_given_get_request_with_header_when_called_then_handler_always_run
         first = await client.get("/snapshot", headers={"Idempotency-Key": key})
         second = await client.get("/snapshot", headers={"Idempotency-Key": key})
 
-    # THEN: GET is not in the configured set, both runs hit the handler
-    assert first.json() == {"hits": 1}
-    assert second.json() == {"hits": 2}
+    # THEN: counter increments each call (one observable: the response body sequence)
+    assert (first.json(), second.json()) == ({"hits": 1}, {"hits": 2})
+
+
+@pytest.mark.integration
+async def test_given_get_request_with_header_when_called_then_no_idempotency_row_is_persisted(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    # GIVEN: middleware configured for POST only; a GET endpoint hit with a key
+    app = FastAPI()
+    app.state.session_factory = session_factory
+    app.add_middleware(IdempotencyMiddleware, methods=frozenset({"POST"}), ttl_seconds=3600)
+
+    @app.get("/snapshot")
+    async def snapshot() -> dict:
+        return {"ok": True}
+
+    key = str(uuid4())
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        # WHEN
+        await client.get("/snapshot", headers={"Idempotency-Key": key})
+
+    # THEN
     row = await _row_for(session_factory, key)
     assert row is None
