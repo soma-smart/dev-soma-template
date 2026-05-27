@@ -46,9 +46,9 @@
 
   "forwardPorts": [8000, 5432, 16686],
   "portsAttributes": {
-    "8000": { "label": "FastAPI app" },
-    "5432": { "label": "Postgres" },
-    "16686": { "label": "Jaeger UI" }
+    "8000": { "label": "FastAPI app", "onAutoForward": "openPreview" },
+    "5432": { "label": "Postgres", "onAutoForward": "silent" },
+    "16686": { "label": "Jaeger UI", "onAutoForward": "notify" }
   },
 
   "customizations": {

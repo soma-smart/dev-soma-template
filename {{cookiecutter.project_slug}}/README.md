@@ -33,7 +33,7 @@ artefact. Run `just openapi` locally to dump the OpenAPI schema to `openapi.json
 
 ## First time on this project
 
-1. Open in VS Code and run **Reopen in Container** — Postgres + Jaeger + OTel collector start automatically.
+1. Open in VS Code and run **Reopen in Container** — Postgres + Jaeger + OTel collector start automatically, and the Swagger UI opens in a preview pane. Several projects baked from this template can coexist on the same machine (no fixed host port bindings — VS Code's Ports tab handles forwarding and picks free local ports automatically).
 2. Read [`CLAUDE.md`](CLAUDE.md) (AI rules) and [`docs/architecture.md`](docs/architecture.md).
 3. Browse the **User reference feature** shipped in `src/` and `tests/` — it threads the four layers end-to-end (`GET /v1/users/me` → JWT `get_current_user` → `EnsureUserExistsUseCase` (idempotent find-or-create on the `subject` claim) → `SqlAlchemyUserRepository` → `users` table). It is real working code: keep it as a starting point if your service has the notion of a user; remove it cleanly otherwise (see below). The IdP integration walkthrough lives in [`docs/swagger-oauth2.md`](docs/swagger-oauth2.md).
 4. Add your first feature using the `building-a-feature` Claude skill.

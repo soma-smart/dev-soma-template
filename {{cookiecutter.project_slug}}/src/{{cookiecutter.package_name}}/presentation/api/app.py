@@ -13,6 +13,7 @@ from contextlib import asynccontextmanager
 import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 {%- if cookiecutter.include_otel == "yes" %}
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.logging import LoggingInstrumentor
@@ -134,6 +135,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         excluded_handlers=["/metrics", "/health/.*"],
         should_group_status_codes=False,
     ).instrument(app).expose(app, include_in_schema=False, endpoint="/metrics")
+
+    @app.get("/", include_in_schema=False)
+    async def _root_to_docs() -> RedirectResponse:
+        return RedirectResponse(url="/docs")
 
     app.include_router(health_router)
     app.include_router(auth_v1.router)

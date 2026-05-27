@@ -68,8 +68,6 @@ services:
       postgres:
         condition: service_healthy
     restart: unless-stopped
-    ports:
-      - "9100:9100"   # Prometheus /metrics: curl localhost:9100/metrics
     networks:
       - soma-dev
 
@@ -86,8 +84,6 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
-    ports:
-      - "5432:5432"
     networks:
       - soma-dev
 
@@ -96,8 +92,6 @@ services:
     image: jaegertracing/all-in-one:1.75.0
     environment:
       COLLECTOR_OTLP_ENABLED: "true"
-    ports:
-      - "16686:16686"   # Jaeger UI: http://localhost:16686
     networks:
       - soma-dev
 
