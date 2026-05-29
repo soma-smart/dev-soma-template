@@ -44,11 +44,12 @@
   "postCreateCommand": "just install && just hooks",
   "postStartCommand": "just migrate || true",
 
-  "forwardPorts": [8000, 5432, 16686],
+  "forwardPorts": [8000, 5432, 16686{% if cookiecutter.swagger_auth_scheme == "oauth2_auth_code" %}, 8080{% endif %}],
   "portsAttributes": {
     "8000": { "label": "FastAPI app", "onAutoForward": "openPreview" },
     "5432": { "label": "Postgres", "onAutoForward": "silent" },
-    "16686": { "label": "Jaeger UI", "onAutoForward": "notify" }
+    "16686": { "label": "Jaeger UI", "onAutoForward": "notify" }{% if cookiecutter.swagger_auth_scheme == "oauth2_auth_code" %},
+    "8080": { "label": "Keycloak (local IdP)", "onAutoForward": "silent" }{% endif %}
   },
 
   "customizations": {

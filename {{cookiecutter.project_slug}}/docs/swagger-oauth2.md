@@ -1,5 +1,23 @@
 {% raw %}# Swagger UI OAuth2 / Authorization Code flow
 
+## TL;DR — local Keycloak (devcontainer)
+
+Projects generated with `swagger_auth_scheme=oauth2_auth_code` ship a local Keycloak inside the devcontainer (`.devcontainer/docker-compose.yml`, realm `dev` auto-imported from `.devcontainer/keycloak/realm-export.json`). `.env.example` is already wired to it.
+
+1. Open the devcontainer — Postgres, Keycloak and the API start automatically.
+2. Run `just dev`, visit `http://localhost:8000/docs`.
+3. Click **Authorize** → the browser redirects to `http://localhost:8080`.
+4. Log in as **`alice` / `alice`** (regular user) or **`admin` / `admin`** (admin role).
+5. Swagger UI receives the token and uses it on every subsequent call.
+
+Keycloak admin console is at `http://localhost:8080`, admin/admin. Tokens issued from the `dev` realm carry `aud=api`, which `AUTH_JWT_AUDIENCE=api` in `.env` validates.
+
+The rest of this document explains the underlying mechanism and how to point at Azure AD / Auth0 / a managed Keycloak in staging.
+
+---
+
+## Switching schemes
+
 By default the API ships with the **HTTPBearer** Swagger UI scheme:
 click "Authorize", paste a JWT, every subsequent request is
 authenticated. Functional but every dev has to obtain a token elsewhere

@@ -36,6 +36,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+{%- if cookiecutter.swagger_auth_scheme == "oauth2_auth_code" %}
+      keycloak:
+        condition: service_healthy
+{%- endif %}
 {%- if cookiecutter.include_otel == "yes" %}
       jaeger:
         condition: service_started
@@ -86,6 +90,36 @@ services:
       retries: 5
     networks:
       - soma-dev
+
+{%- if cookiecutter.swagger_auth_scheme == "oauth2_auth_code" %}
+  # Local IdP for the OAuth2 Authorization Code flow exposed by Swagger UI.
+  # Realm 'dev' is auto-imported on first start; seeded users: alice/alice
+  # (regular), admin/admin (admin role). Tokens carry aud=api.
+  # Browser → http://localhost:8080  |  App container → http://keycloak:8080
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command:
+      - start-dev
+      - --import-realm
+      - --http-port=8080
+      - --hostname-strict=false
+      - --hostname=http://localhost:8080
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HEALTH_ENABLED: "true"
+      KC_LOG_LEVEL: WARN
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080 && echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '\"status\": \"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+    networks:
+      - soma-dev
+{%- endif %}
 
 {%- if cookiecutter.include_otel == "yes" %}
   jaeger:

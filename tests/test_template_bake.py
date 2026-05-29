@@ -177,13 +177,15 @@ def test_given_combo_when_baking_then_succeeds(cookies, combo_id: str, context: 
         assert not (project / ".github" / "workflows" / "sdk-typescript.yml").exists()
     env_text = (project / ".env.example").read_text(encoding="utf-8")
     if context.get("swagger_auth_scheme") == "oauth2_auth_code":
-        # The IdP-driven defaults must be present.
-        assert "SWAGGER_OAUTH2_AUTHORIZATION_URL=https://login.microsoftonline.com" in env_text
+        # Defaults are wired to the local Keycloak shipped in the devcontainer.
+        assert "SWAGGER_OAUTH2_AUTHORIZATION_URL=http://localhost:8080/realms/dev/" in env_text
         assert "AUTH_JWT_ALGORITHM=RS256" in env_text
+        assert (project / ".devcontainer" / "keycloak" / "realm-export.json").is_file()
     else:
         # Default flavour keeps the OAuth2 endpoints empty (paste-once UX).
         assert "SWAGGER_OAUTH2_AUTHORIZATION_URL=\n" in env_text
         assert "AUTH_JWT_ALGORITHM=HS256" in env_text
+        assert not (project / ".devcontainer" / "keycloak").exists()
 
 
 @pytest.mark.integration
