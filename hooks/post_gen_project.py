@@ -25,6 +25,7 @@ INCLUDE_OTEL = "{{ cookiecutter.include_otel }}" == "yes"
 FRONTEND_SDK = "{{ cookiecutter.frontend_sdk }}"
 DATABASE = "{{ cookiecutter.database }}"
 PACKAGE_NAME = "{{ cookiecutter.package_name }}"
+SWAGGER_AUTH_SCHEME = "{{ cookiecutter.swagger_auth_scheme }}"
 
 
 def info(message: str) -> None:
@@ -54,6 +55,27 @@ def run(*command: str) -> bool:
     return True
 
 
+def git_commit_step(message: str, *paths: str) -> None:
+    """Stage the listed paths and commit them, no-op when nothing changed.
+
+    Bypasses any installed hooks (-n): bootstrap commits must not be gated by
+    linters that haven't even been run on the user's machine yet.
+    """
+    if not (PROJECT_ROOT / ".git").exists():
+        return
+    for path in paths:
+        if (PROJECT_ROOT / path).exists():
+            run("git", "add", "--", path)
+    status = subprocess.run(
+        ["git", "diff", "--cached", "--quiet"],
+        cwd=PROJECT_ROOT,
+        check=False,
+    )
+    if status.returncode == 0:
+        return
+    run("git", "commit", "-n", "-m", message)
+
+
 def remove_optional_components() -> None:
     if not INCLUDE_HELM:
         remove_path("helm")
@@ -62,6 +84,8 @@ def remove_optional_components() -> None:
     if FRONTEND_SDK == "none":
         remove_path("scripts/export_openapi.py")
         remove_path(".github/workflows/sdk-typescript.yml")
+    if SWAGGER_AUTH_SCHEME != "oauth2_auth_code":
+        remove_path(".devcontainer/keycloak")
     if DATABASE == "sqlite":
         info("database=sqlite: docker-compose Postgres service is still provided as opt-in.")
 
@@ -86,6 +110,8 @@ def git_init() -> None:
 def uv_sync() -> None:
     if not run("uv", "sync", "--group", "dev"):
         warn("uv sync failed. Install uv and run 'uv sync --group dev' manually.")
+        return
+    git_commit_step("chore: lock dependencies", "uv.lock")
 
 
 def install_pre_commit() -> None:
@@ -105,15 +131,17 @@ def install_pre_commit() -> None:
 
 
 def apply_initial_migration() -> None:
-    """Best-effort ``alembic upgrade head`` against the configured DB.
+    """Run ``alembic upgrade head`` for SQLite only.
 
-    Loads ``.env`` so ``DB_URL`` is available to alembic, then attempts the
-    upgrade. Succeeds for the SQLite default (creates ``local.db`` in the
-    project root). For Postgres, succeeds only when the DB is already up
-    (e.g. inside the devcontainer); otherwise the failure is logged and
-    silenced — the devcontainer ``postStartCommand`` reapplies it once the
-    Postgres service is healthy.
+    SQLite is local-file, deterministic, completes in <1s. For Postgres the
+    DB URL points at the in-network ``postgres`` service that is unreachable
+    from the host running cookiecutter; the devcontainer's ``postStartCommand``
+    (``just migrate``) applies the schema once the service is healthy.
     """
+    if DATABASE != "sqlite":
+        info("alembic upgrade head deferred to devcontainer postStart (just migrate).")
+        return
+
     env = os.environ.copy()
     env_file = PROJECT_ROOT / ".env"
     if env_file.exists():
@@ -131,11 +159,11 @@ def apply_initial_migration() -> None:
             env=env,
             check=True,
             capture_output=True,
-            timeout=30,
+            timeout=15,
         )
         info("applied initial migration")
     except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired) as exc:
-        warn(f"alembic upgrade head skipped (DB not reachable yet?): {exc}")
+        warn(f"alembic upgrade head skipped: {exc}")
 
 
 def print_next_steps() -> None:

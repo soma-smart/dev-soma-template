@@ -16,9 +16,9 @@ default:
 install:
     uv sync --group dev
 
-# Install all pre-commit and git hooks (commit-msg + pre-push).
+# Install all pre-commit and git hooks (pre-commit + commit-msg + pre-push).
 hooks:
-    uv run pre-commit install --install-hooks --hook-type commit-msg --hook-type pre-push
+    uv run pre-commit install --install-hooks --hook-type pre-commit --hook-type commit-msg --hook-type pre-push
 
 # ─── Run ────────────────────────────────────────────────────────────
 # Start the FastAPI dev server with auto-reload.
@@ -37,9 +37,21 @@ dev-token SUBJECT ROLES="":
 test:
     uv run pytest -m unit -x -q
 
+# Watch mode: re-run unit tests on every file save (TDD inner loop).
+# Quit with Ctrl-C.
+test-watch:
+    uv run ptw --runner "uv run pytest -m unit -x -q" .
+
 # All tests (unit + integration + e2e). Requires Docker for testcontainers.
 test-all:
     uv run pytest
+
+# Parallel run of the full suite. Each xdist worker spawns its own
+# testcontainers Postgres, so this only pays off once the suite is large
+# enough that wall-clock savings beat per-worker container startup
+# (rule of thumb: > ~100 integration/e2e tests on the machine).
+test-parallel:
+    uv run pytest -n auto
 
 # Integration tests only.
 test-integration:

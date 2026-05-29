@@ -45,6 +45,12 @@ Thumbs.db
 .env.*
 !.env.example
 
+# Local SQLite dev database
+local.db
+local.db-journal
+local.db-wal
+local.db-shm
+
 # Logs
 *.log
 
