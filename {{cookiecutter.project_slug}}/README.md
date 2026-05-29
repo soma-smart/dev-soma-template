@@ -57,17 +57,16 @@ git rm src/{{ cookiecutter.package_name }}/domain/entities/user.py \
        src/{{ cookiecutter.package_name }}/presentation/api/schemas/user.py \
        src/{{ cookiecutter.package_name }}/presentation/api/dependencies/users.py
 
-# Tests (6) + the migration that creates the users table (1)
+# Tests (6)
 git rm tests/unit/domain/test_user.py \
        tests/unit/domain/test_email.py \
-       tests/unit/application/test_ensure_user_exists_use_case.py \
+       tests/unit/use_cases/test_ensure_user_exists.py \
        tests/e2e/api/test_users_me_endpoint.py \
        tests/integration/infrastructure/test_user_repository.py \
-       tests/fakes/repositories/user.py \
-       alembic/versions/0001_init_users.py
+       tests/fakes/repositories/user.py
 ```
 
-Then **edit four files** to drop the dangling references:
+Then **edit five files** to drop the dangling references:
 
 | File | Drop |
 | --- | --- |
@@ -75,6 +74,7 @@ Then **edit four files** to drop the dangling references:
 | `src/{{ cookiecutter.package_name }}/presentation/api/error_handlers.py` | the `UserAlreadyExistsError`, `UserNotFoundError`, `InvalidEmailError`, `MissingProfileClaimsError` imports and entries in `ERROR_HTTP_MAPPING` |
 | `src/{{ cookiecutter.package_name }}/infrastructure/container.py` | `build_user_repository`, `build_ensure_user_exists_use_case`, and their imports |
 | `src/{{ cookiecutter.package_name }}/presentation/api/app.py` | the `users_v1` import and `app.include_router(users_v1.router)` line |
+| `alembic/versions/0001_init.py` | the `users` block in `upgrade()` (table + the two unique indexes) and the matching lines in `downgrade()` — the file also creates `outbox_events` and `idempotency_records`, leave those alone |
 
 Sanity-check your removal:
 

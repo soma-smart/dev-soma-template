@@ -53,8 +53,9 @@ This project ships **no custom sub-agents**. The main agent handles the whole fl
 2. The main agent asks 4-6 clarification questions (picked from the packs in `building-a-feature`).
 3. The user answers.
 4. The main agent produces the 5-section outside-in plan.
-5. The user validates.
+5. **MANDATORY HARD GATE — the user validates.** After posting the plan, the agent **STOPS** and waits for an **explicit affirmative** ("go", "ok", "validé", …). Silence, clarifying questions, and partial acknowledgements are **NOT** approval. No `Edit`/`Write`/`git` calls until the user explicitly unblocks. See `building-a-feature` §4 for the full discipline.
 6. The main agent executes outside-in TDD: use case (unit) → persistence (integration) → route (e2e), wires the container, runs mutation testing.
+7. Once the suite is green and lint passes, the main agent **commits the work itself** as one conventional-commit (`feat(<scope>): …` / `fix(<scope>): …`). No `--no-verify`. The user reviews the commit, not the working tree.
 
 The full runbook is in `building-a-feature`. The discipline (red-green-refactor, Fakes-only, GIVEN/WHEN/THEN, mutation) is in `tdd-workflow`. The "how SOMA code is shaped" reference (layers, naming, DI, observability) is in `onboarding-soma`.
 

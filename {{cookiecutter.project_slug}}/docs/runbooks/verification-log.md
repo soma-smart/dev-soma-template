@@ -4,7 +4,7 @@ Quarterly restore-drill record — see `backups-and-restore.md` § "Backup verif
 
 | Date (UTC) | Operator | Restore source | Restore target | `alembic current` | `pytest -m integration` | Anomalies / time-to-restore |
 |---|---|---|---|---|---|---|
-| _example_ 2026-04-15 | alice@soma | prod backup 2026-04-14 23:59 | side instance `psql-restore-20260415` | `0003_outbox_retry_columns` | 16 passed | ~12 min total; no anomalies |
+| _example_ 2026-04-15 | alice@soma | prod backup 2026-04-14 23:59 | side instance `psql-restore-20260415` | `0001_init` | 16 passed | ~12 min total; no anomalies |
 
 ## Process reminder
 

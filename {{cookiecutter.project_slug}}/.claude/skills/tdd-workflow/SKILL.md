@@ -21,8 +21,8 @@ Cycle:
 
 | Change | First red test |
 |---|---|
-| New feature ("create a todolist", "complete a task") | `tests/unit/application/test_<verb>_<noun>_use_case.py` — outer test with Fakes for the use case |
-| New rule on an existing entity ("a closed order cannot be shipped") | `tests/unit/application/test_<verb>_<noun>_use_case.py` — outer test exercising the rule via the use case that triggers it |
+| New feature ("create a todolist", "complete a task") | `tests/unit/use_cases/test_<verb>_<noun>.py` — outer test with Fakes for the use case |
+| New rule on an existing entity ("a closed order cannot be shipped") | `tests/unit/use_cases/test_<verb>_<noun>.py` — outer test exercising the rule via the use case that triggers it |
 | Pure-domain invariant that does NOT involve a use case (rare — e.g. an `Email` rejects malformed strings) | `tests/unit/domain/test_<value_object>.py` — inside-out drill, the value object alone |
 | Bug fix | The test that REPRODUCES the bug. Usually at the level where the bug was observed. |
 
@@ -35,7 +35,7 @@ Default for a feature is **outer at the use case level**. Don't drop to the enti
 Write the test imagining that the use case, the DTO, the repository Protocol, the entity, the value object — ALL already exist. The compiler's import errors will guide the build order.
 
 ```python
-# tests/unit/application/test_<verb>_<noun>_use_case.py
+# tests/unit/use_cases/test_<verb>_<noun>.py
 
 @pytest.mark.unit
 async def test_given_<context>_when_<action>_then_<expectation>() -> None:
@@ -172,7 +172,7 @@ the routine survivors are gone.
 ### Red 1 — outer test, happy path
 
 ```python
-# tests/unit/application/test_create_todo_list_use_case.py
+# tests/unit/use_cases/todo_list/test_create.py
 
 @pytest.mark.unit
 async def test_given_authenticated_owner_when_creating_todolist_then_persists_and_returns_output(
@@ -272,23 +272,29 @@ Same red-green-refactor-mutate cycle, just no use case in scope. This is the ins
 
 ```
 tests/
-├── unit/                  # Fakes only, no I/O. Mutation testing target.
-│   ├── domain/            # entities, value objects, exceptions
-│   ├── application/       # use cases — the bulk of branches
-│   └── presentation/      # invariants on the HTTP mapping, schema parsing
+├── unit/                  # Anything pure: no I/O, no DB, no HTTP server. Mutation testing target.
+│   ├── use_cases/         # ★ PRIMARY citizen — every feature has its outer test here, with Fakes.
+│   │                      #   Mirrors src/<pkg>/application/use_cases/. Aggregate grouping kicks
+│   │                      #   in at 3+ tests for the same aggregate (tests/unit/use_cases/<agg>/).
+│   ├── domain/            # Inside-out drills on a single VO / entity invariant — secondary.
+│   ├── application/       # Pure non-use-case helpers (e.g. CurrentUser.has_role).
+│   ├── infrastructure/    # Pure helpers from infrastructure (e.g. backoff math).
+│   └── presentation/      # Pure FastAPI dependency factories, exhaustive error mapping checks.
 ├── integration/           # testcontainers Postgres / Redis. Real systems.
 │   └── infrastructure/    # repositories, http clients, mappers
-└── e2e/                   # FastAPI booted via TestClient.
-    └── api/
+└── e2e/                   # FastAPI on TestClient + real adapters (testcontainers PG +
+    └── api/               #   HS256 JWT verifier). Fakes are NOT used here — see §3.
 ```
 
-Per-layer conftests under `tests/conftest.py` (root primitives) + `tests/unit/conftest.py` + `tests/integration/conftest.py` (testcontainers PG) + `tests/e2e/conftest.py` (`app`, `client`, `StubAsyncSession`).
+Discriminator for **what belongs in `tests/unit/`** is "**is it pure?**" (no I/O, no DB, no HTTP server, no testcontainers), NOT "is it a use case". `tests/unit/use_cases/` is the primary citizen because that's where each feature's specification lives; everything else under `unit/` is a focused pure test that would otherwise need an e2e to be validated.
+
+Per-layer conftests under `tests/conftest.py` (root: Fakes for unit + `pg_url`/`pg_engine` for integration & e2e) + `tests/unit/conftest.py` + `tests/integration/conftest.py` (test-scoped `pg_session` with savepoint rollback) + `tests/e2e/conftest.py` (`app`, `client`, `e2e_session_factory`, `mint_token`, `jwt_verifier`, `StubAsyncSession`).
 
 ## Hard rules
 
 ### 0. Outer drives inner
 
-For a new feature, the **first** failing test is at the use case level (`tests/unit/application/`) with Fakes. Domain-level tests (`tests/unit/domain/`) are added afterwards, only for invariants that the use case test cannot express well on its own. The use case test is the **specification**; the domain test is **drill**. Never the opposite order.
+For a new feature, the **first** failing test is at the use case level (`tests/unit/use_cases/`) with Fakes. Domain-level tests (`tests/unit/domain/`) are added afterwards, only for invariants that the use case test cannot express well on its own. The use case test is the **specification**; the domain test is **drill**. Never the opposite order.
 
 ### 1. Fakes-only at unit
 
@@ -307,13 +313,17 @@ Integration tests prove the contract that unit-level Fakes cannot:
 - `find_by_email` round-trips the entity ↔ ORM model mapping
 - the transaction rollback semantics actually rollback
 
-### 3. E2E proves wiring, not branches
+### 3. E2E proves wiring on REAL adapters, not branches
 
 For each endpoint: **1 happy path + 1 critical error**. No more.
 
 If a use case has 12 branches, those are 12 unit tests; only 1-2 e2e. Duplicating branches at e2e level is a smell — the right fix is adding a unit test, not adding an e2e.
 
-E2E uses the `client` fixture from `tests/e2e/conftest.py`, which gives a `TestClient` with `dependency_overrides` already wired to the in-memory Fakes. The Fake repository doubles as a Spy: assert against `user_repository.users` after the request.
+E2E uses the `client` fixture from `tests/e2e/conftest.py`, which wires the FastAPI app to **real adapters** by default — real `SqlAlchemyUserRepository`, real `SqlOutboxEventBus`, real `JwtTokenVerifier`. The only overrides are at the genuine seams: `get_session` → an `AsyncSession` bound to the testcontainers Postgres (per-test transaction, rolled back at teardown), and `get_token_verifier` → a real HS256 verifier configured with a known test secret (so tests can mint legitimate JWTs via the `mint_token` fixture instead of pasting a Fake-accepted string).
+
+In-memory Fakes (`InMemoryUserRepository`, `FakeTokenVerifier`, `InMemoryEventBus`, …) **never** appear in `tests/e2e/`. They stay reserved for `tests/unit/` where their Spy facet (`user_repository.users`, `event_bus.published`) gives focused branch coverage without paying for I/O. Assertions in e2e use the API response body or a direct SQL query through `e2e_session_factory` when row-count semantics need to be checked (idempotency proof, "is the row really there?").
+
+`StubAsyncSession` is the documented exception: it simulates a DB outage on the readiness probe by raising `OperationalError` on `execute`. That's a failure-mode test, not an I/O-avoidance shortcut.
 
 ### 4. GIVEN/WHEN/THEN strict
 
@@ -374,6 +384,48 @@ parametrize id.
 
 - A `pytest.raises(...)` block plus an assert on `excinfo.value.context[...]` is still ONE behavioural assertion (the exception type + its context payload describe the same failure).
 - Equality on a whole DTO / dict / list — `assert output == ExpectedOutput(...)` is one assertion, even if it covers many fields.
+
+#### 4c. Extract repeated GIVEN into fixtures
+
+If two or more tests share the same GIVEN setup, the setup belongs in a fixture. The GIVEN block of each test then collapses to a `# GIVEN: <one-line description of the precondition the fixture establishes>` annotation — the form already tolerated by §4.
+
+Decision tree:
+
+- **Used in one test file only** → fixture in that test file (a top-level `@pytest.fixture` in the module).
+- **Used across multiple test files in the same layer** (e.g. all `tests/integration/infrastructure/...`) → fixture in the nearest `conftest.py` (`tests/integration/conftest.py`, `tests/unit/conftest.py`, etc.).
+- **Used across all layers** → fixture in `tests/conftest.py` — the root conftest. This is where `frozen_clock`, `sequential_ids`, `seeded_random`, the in-memory Fakes, and `ensure_user_exists_use_case` already live; new cross-cutting fixtures join them.
+
+Example — before:
+
+```python
+async def test_given_existing_user_when_X_then_Y() -> None:
+    # GIVEN
+    user_repository.users["sub-1"] = User(...)
+    ...
+async def test_given_existing_user_when_Z_then_W() -> None:
+    # GIVEN
+    user_repository.users["sub-1"] = User(...)
+    ...
+```
+
+After — fixture lives in the same file (or in `tests/unit/conftest.py` if other modules need it):
+
+```python
+@pytest.fixture
+def existing_user(user_repository: FakeUserRepository) -> User:
+    user = User(...)
+    user_repository.users[user.subject] = user
+    return user
+
+async def test_given_existing_user_when_X_then_Y(existing_user: User) -> None:
+    # GIVEN: an existing user (fixture)
+    ...
+async def test_given_existing_user_when_Z_then_W(existing_user: User) -> None:
+    # GIVEN: an existing user (fixture)
+    ...
+```
+
+Avoid extracting a fixture for a single test — duplicating setup once is cheaper than the indirection.
 
 ### 5. FIRST principles
 

@@ -158,13 +158,13 @@ happens lazily via SSO):
 | presentation | `presentation/api/v1/users.py` (`GET /v1/users/me` router) |
 | presentation | `presentation/api/error_handlers.py` (the `ERROR_HTTP_MAPPING` entries) |
 | tests | `tests/unit/domain/test_user.py` + `test_email.py` |
-| tests | `tests/unit/application/test_ensure_user_exists_use_case.py` |
+| tests | `tests/unit/use_cases/test_ensure_user_exists.py` |
 | tests | `tests/integration/infrastructure/test_user_repository.py` |
 | tests | `tests/e2e/api/test_users_me_endpoint.py` |
 | tests | `tests/fakes/repositories/user.py` (`InMemoryUserRepository`) + `tests/fakes/auth.py` (`FakeTokenVerifier`) |
 
-Migration: `alembic/versions/0001_init_users.py` (creates `users.id` +
-`users.subject` UNIQUE).
+Migration: `alembic/versions/0001_init.py` (initial schema — creates `users`
+alongside `outbox_events` and `idempotency_records`; `users.subject` is UNIQUE).
 
 If the project does not need a user notion at all, remove the feature
 cleanly (entity, use case, repo binding, route, schema, migration,
@@ -315,9 +315,62 @@ If the Repo has methods like `find_by_X(value)` for every field, you've recreate
 - **Plural** for collections: `use_cases/`, `entities/`, `repositories/`, `value_objects/`, `dtos/`.
 - **Singular** for concept modules: `clock.py`, `container.py`, `app.py`, `outbox.py`.
 
+#### Group by aggregate when the kind folder has 3+ files for it
+
+Each Clean-Architecture layer is split first by **kind** (use_cases, entities, value_objects, dtos, repositories, schemas, models, …) — that part is non-negotiable. When the same **aggregate** has **3 or more** files inside one kind folder, group them into a sub-folder named after the aggregate (snake_case), and **drop the aggregate prefix from the filenames inside**.
+
+```
+application/use_cases/
+  ensure_user_exists.py                # 1 use case for User → flat
+  todo_list/                           # 4 use cases for TodoList → grouped
+    __init__.py
+    create.py
+    get.py
+    list.py
+    delete.py
+
+domain/value_objects/
+  email.py
+  user_id.py
+  todo_list/
+    __init__.py
+    name.py
+    description.py
+    todo_list_id.py
+
+application/dtos/
+  user.py                              # one DTO module → flat
+  todo_list/                           # 3+ DTOs → grouped
+    create_input.py
+    update_input.py
+    view.py
+
+presentation/api/schemas/
+  user.py
+  todo_list/
+    create_request.py
+    update_request.py
+    view_response.py
+```
+
+Where it usually does **not** apply (one file per aggregate is the norm):
+
+- `domain/entities/<aggregate>.py` — one entity per aggregate.
+- `application/repositories/<aggregate>.py` — one Protocol per aggregate.
+- `presentation/api/v1/<aggregate>s.py` — one router per aggregate.
+- `infrastructure/persistence/models/<aggregate>.py` — one ORM model per aggregate.
+
+Thresholds:
+
+- **< 3 files** for the aggregate in that kind → keep them flat with the aggregate in the filename (`create_user.py`).
+- **≥ 3 files** → create the sub-folder. Promote existing files into it in the same edit (no half-state).
+- The threshold is per kind folder, not project-wide. `domain/value_objects/todo_list/` can exist while `application/use_cases/` keeps `todo_list/` flat if there are only 2 use cases.
+
+Aggregate sub-folders ship an `__init__.py`. Names inside follow the **verb-only** convention (`create.py`, `get.py`) so the import reads `from .use_cases.todo_list import create` — the aggregate is carried by the folder.
+
 ### Tests
 
-- File: `test_<sut_name>.py` mirroring the source layout (`tests/unit/application/test_ensure_user_exists_use_case.py`).
+- File: `test_<sut_name>.py` mirroring the source layout (`tests/unit/use_cases/test_ensure_user_exists.py`).
 - Function: `test_given_<context>_when_<action>_then_<expectation>`.
 - Body format (GIVEN / WHEN / THEN comments): see `tdd-workflow`.
 

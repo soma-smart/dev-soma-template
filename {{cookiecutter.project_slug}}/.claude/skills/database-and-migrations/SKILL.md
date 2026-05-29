@@ -6,7 +6,7 @@ when_to_use: Adding or changing an ORM model under infrastructure/persistence/mo
 
 # Database and migrations
 
-Stack: SQLAlchemy 2.0 async + asyncpg + Alembic with an async env. The `0001_init_users.py` revision shipped with the template is the canonical reference for every pattern below — open it alongside this skill.
+Stack: SQLAlchemy 2.0 async + asyncpg + Alembic with an async env. The `0001_init.py` revision shipped with the template creates the three tables wired by default (`users`, `outbox_events`, `idempotency_records`) — open it alongside this skill as the canonical reference for every pattern below.
 
 ## Where things live
 

@@ -12,11 +12,9 @@ when_to_use: Editing any file under src/<pkg>/domain/. Designing a new entity / 
 
 2. **No non-deterministic side effects.** `datetime.now()`, `datetime.utcnow()`, `uuid.uuid4()`, `random.*`, `time.time()` are forbidden — they break the **R**epeatable property of FIRST tests. Use the `Clock`, `IdGenerator`, `RandomSource` abstractions from `application/`. The domain may freely **type** with `datetime`, `UUID`, etc. — only the side-effecting calls are banned.
 
-3. **No `float`** for monetary or precise quantities. Use `decimal.Decimal`. Enforced by `scripts/checks/no_float_in_domain.py` (scoped to `domain/` only).
+3. **No log calls.** The domain is silent. Logging is an infrastructure concern; the domain raises typed exceptions instead.
 
-4. **No log calls.** The domain is silent. Logging is an infrastructure concern; the domain raises typed exceptions instead.
-
-5. **TZ-aware datetimes only.** Always pass `datetime` with `tz=UTC` (or another explicit zone). A naive `datetime` is treated as a bug.
+4. **TZ-aware datetimes only.** Always pass `datetime` with `tz=UTC` (or another explicit zone). A naive `datetime` is treated as a bug.
 
 ## What `domain/` may import
 
@@ -184,7 +182,7 @@ If you are tempted to give the same exception type a different HTTP status in di
 Following `tdd-workflow`:
 
 ```python
-# tests/unit/application/test_<use_case>.py
+# tests/unit/use_cases/test_<verb>_<noun>.py
 async def test_given_<context>_when_<action>_then_raises_<error>(
     <use_case_fixture>: <UseCaseClass>,
 ) -> None:
