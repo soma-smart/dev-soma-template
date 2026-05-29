@@ -1,61 +1,19 @@
-"""Integration-layer conftest — testcontainers Postgres + clean session per test.
+"""Integration-layer conftest — clean session per test on testcontainers PG.
 
-These fixtures are opt-in via ``pytest -m integration``. They require a
-reachable Docker daemon: testcontainers spawns a fresh Postgres for the
-test session, the schema is created once, each test runs inside its own
-transaction that rolls back on exit so isolation is perfect without
-paying a re-create cost.
+``pg_url`` and ``pg_engine`` (session-scoped) live in ``tests/conftest.py``
+because both integration and e2e consume them. This module owns the
+per-test transaction-wrapped session that integration tests use.
 
-When Docker is not reachable (typical inside a devcontainer that does
-not mount the host docker.sock), the session skips integration tests
-with a clear message instead of erroring. Run them on the host or in
-CI (``ci-quality.yml::test-integration``).
+When Docker is not reachable, the root ``pg_url`` fixture skips with a
+clear message; this conftest only adds the test-scoped session on top.
 """
 
 from __future__ import annotations
 
-import contextlib
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator
 
-import pytest
 import pytest_asyncio
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
-from testcontainers.postgres import PostgresContainer
-
-from {{ cookiecutter.package_name }}.infrastructure.persistence.models import Base
-
-
-@pytest.fixture(scope="session")
-def pg_url() -> Iterator[str]:
-    """Spawn one Postgres 17 container for the whole test session.
-
-    Skips integration tests cleanly when the Docker daemon is not
-    reachable instead of letting testcontainers raise a noisy stack.
-    The Docker SDK probes the daemon as soon as ``PostgresContainer``
-    is instantiated, so we wrap both construction and ``start()``.
-    """
-    try:
-        container = PostgresContainer("postgres:17")
-        container.start()
-    except Exception as exc:
-        pytest.skip(f"Docker daemon not reachable; integration tests skipped: {exc}")
-    try:
-        sync_url = container.get_connection_url()
-        # testcontainers defaults to psycopg2; rewrite to asyncpg.
-        yield sync_url.replace("postgresql+psycopg2", "postgresql+asyncpg")
-    finally:
-        with contextlib.suppress(Exception):
-            container.stop()
-
-
-@pytest_asyncio.fixture(scope="session")
-async def pg_engine(pg_url: str) -> AsyncIterator[AsyncEngine]:
-    """Build the async engine and create the schema once per session."""
-    engine = create_async_engine(pg_url, future=True)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    yield engine
-    await engine.dispose()
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 
 @pytest_asyncio.fixture

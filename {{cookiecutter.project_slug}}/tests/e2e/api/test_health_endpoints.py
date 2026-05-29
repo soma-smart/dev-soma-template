@@ -6,7 +6,7 @@ from collections.abc import AsyncIterator
 
 import pytest
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
+from httpx import AsyncClient
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,25 +16,31 @@ from tests.e2e.conftest import StubAsyncSession
 
 
 @pytest.mark.e2e
-def test_given_running_app_when_calling_live_then_returns_200(client: TestClient) -> None:
+async def test_given_running_app_when_calling_live_then_returns_200(
+    client: AsyncClient,
+) -> None:
     # WHEN
-    response = client.get("/health/live")
+    response = await client.get("/health/live")
 
     # THEN
     assert (response.status_code, response.json()) == (200, {"status": "live"})
 
 
 @pytest.mark.e2e
-def test_given_db_reachable_when_calling_ready_then_returns_200(client: TestClient) -> None:
+async def test_given_db_reachable_when_calling_ready_then_returns_200(
+    client: AsyncClient,
+) -> None:
     # WHEN
-    response = client.get("/health/ready")
+    response = await client.get("/health/ready")
 
     # THEN
     assert (response.status_code, response.json()) == (200, {"status": "ready"})
 
 
 @pytest.mark.e2e
-def test_given_db_unreachable_when_calling_ready_then_returns_503(app: FastAPI, client: TestClient) -> None:
+async def test_given_db_unreachable_when_calling_ready_then_returns_503(
+    app: FastAPI, client: AsyncClient
+) -> None:
     # GIVEN
     failing = StubAsyncSession(raises=OperationalError("db down", params=None, orig=None))
 
@@ -44,7 +50,7 @@ def test_given_db_unreachable_when_calling_ready_then_returns_503(app: FastAPI, 
     app.dependency_overrides[get_session] = failing_session
 
     # WHEN
-    response = client.get("/health/ready")
+    response = await client.get("/health/ready")
 
     # THEN
     assert (response.status_code, response.json()) == (
@@ -54,9 +60,11 @@ def test_given_db_unreachable_when_calling_ready_then_returns_503(app: FastAPI, 
 
 
 @pytest.mark.e2e
-def test_given_db_reachable_when_calling_startup_then_returns_200(client: TestClient) -> None:
+async def test_given_db_reachable_when_calling_startup_then_returns_200(
+    client: AsyncClient,
+) -> None:
     # WHEN
-    response = client.get("/health/startup")
+    response = await client.get("/health/startup")
 
     # THEN
     assert (response.status_code, response.json()) == (200, {"status": "started"})

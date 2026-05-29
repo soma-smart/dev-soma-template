@@ -2,22 +2,24 @@
 
 from __future__ import annotations
 
-import pytest
-from fastapi.testclient import TestClient
+from collections.abc import Callable
 
-from tests.fakes.auth import FakeTokenVerifier
+import pytest
+from httpx import AsyncClient
 
 
 @pytest.mark.e2e
-def test_given_valid_bearer_token_when_calling_whoami_then_returns_identity(
-    client: TestClient,
-    token_verifier: FakeTokenVerifier,
+async def test_given_valid_bearer_token_when_calling_whoami_then_returns_identity(
+    client: AsyncClient,
+    mint_token: Callable[..., str],
 ) -> None:
     # GIVEN
-    token_verifier.accept("good-token", subject="alice", email="alice@example.com", roles=("admin",))
+    token = mint_token("alice", email="alice@example.com", roles=("admin",))
 
     # WHEN
-    response = client.get("/v1/auth/whoami", headers={"Authorization": "Bearer good-token"})
+    response = await client.get(
+        "/v1/auth/whoami", headers={"Authorization": f"Bearer {token}"}
+    )
 
     # THEN
     assert (response.status_code, response.json()) == (
@@ -27,13 +29,13 @@ def test_given_valid_bearer_token_when_calling_whoami_then_returns_identity(
 
 
 @pytest.mark.e2e
-def test_given_no_authorization_header_when_calling_whoami_then_returns_401(
-    client: TestClient,
+async def test_given_no_authorization_header_when_calling_whoami_then_returns_401(
+    client: AsyncClient,
 ) -> None:
     # GIVEN: no header set
 
     # WHEN
-    response = client.get("/v1/auth/whoami")
+    response = await client.get("/v1/auth/whoami")
 
     # THEN
     assert (response.status_code, response.json()["error"]["code"]) == (
@@ -43,13 +45,15 @@ def test_given_no_authorization_header_when_calling_whoami_then_returns_401(
 
 
 @pytest.mark.e2e
-def test_given_unknown_token_when_calling_whoami_then_returns_401(
-    client: TestClient,
+async def test_given_unsigned_token_when_calling_whoami_then_returns_401(
+    client: AsyncClient,
 ) -> None:
-    # GIVEN: token_verifier has no registered tokens
+    # GIVEN: bearer that wasn't signed with the e2e secret
 
     # WHEN
-    response = client.get("/v1/auth/whoami", headers={"Authorization": "Bearer unknown"})
+    response = await client.get(
+        "/v1/auth/whoami", headers={"Authorization": "Bearer unknown"}
+    )
 
     # THEN
     assert (response.status_code, response.json()["error"]["code"]) == (
@@ -59,13 +63,15 @@ def test_given_unknown_token_when_calling_whoami_then_returns_401(
 
 
 @pytest.mark.e2e
-def test_given_non_bearer_scheme_when_calling_whoami_then_returns_401(
-    client: TestClient,
+async def test_given_non_bearer_scheme_when_calling_whoami_then_returns_401(
+    client: AsyncClient,
 ) -> None:
     # GIVEN: non-Bearer scheme
 
     # WHEN
-    response = client.get("/v1/auth/whoami", headers={"Authorization": "Basic abc"})
+    response = await client.get(
+        "/v1/auth/whoami", headers={"Authorization": "Basic abc"}
+    )
 
     # THEN
     assert response.status_code == 401

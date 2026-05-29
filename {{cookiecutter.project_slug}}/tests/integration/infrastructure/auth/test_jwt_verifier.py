@@ -26,7 +26,7 @@ from jwt import PyJWKClient
 from {{ cookiecutter.package_name }}.domain.exceptions.auth import InvalidTokenError
 from {{ cookiecutter.package_name }}.infrastructure.auth.jwt_verifier import JwtTokenVerifier
 
-SECRET = "test-secret-do-not-use-in-prod"
+SECRET = "test-secret-do-not-use-in-real-environments"  # >=32 bytes for HMAC-SHA256
 JWKS_URL = "https://idp.example.com/.well-known/jwks.json"
 KID = "test-kid"
 
@@ -98,7 +98,7 @@ def test_given_expired_token_when_verifying_then_raises_invalid_token() -> None:
 def test_given_token_signed_with_wrong_secret_when_verifying_then_raises_invalid_token() -> None:
     # GIVEN
     verifier = JwtTokenVerifier(algorithm="HS256", secret=SECRET)
-    token = _sign(_claims(), secret="another-secret")
+    token = _sign(_claims(), secret="another-secret-also-long-enough-for-hmac-sha256")
 
     # WHEN / THEN
     with pytest.raises(InvalidTokenError):
