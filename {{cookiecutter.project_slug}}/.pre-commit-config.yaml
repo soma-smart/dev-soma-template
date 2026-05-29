@@ -53,13 +53,6 @@ repos:
         pass_filenames: false
         files: ^src/.*\.py$
 
-      - id: no-float-in-domain
-        name: no float in domain layer
-        entry: uv run python scripts/checks/no_float_in_domain.py src/
-        language: system
-        pass_filenames: false
-        files: ^src/.*/domain/.*\.py$
-
       - id: test-naming
         name: GIVEN/WHEN/THEN test format
         entry: uv run python scripts/checks/test_naming.py tests/

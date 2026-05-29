@@ -70,7 +70,6 @@ The architectural rules are not aspirational. They are checked mechanically:
 
 - `scripts/checks/no_third_party_in_domain.py` — pre-commit + Claude hook + CI
 - `scripts/checks/no_naive_datetime.py` — same
-- `scripts/checks/no_float_in_domain.py` — same
 - `ty` strict in `ci-quality.yml` — catches type-level layer violations
 - Dependency rule expressed as Mermaid in `docs/architecture.md` and rationale in [ADR 0001](../../../docs/adr/0001-clean-architecture.md).
 

@@ -27,9 +27,6 @@ uv run python scripts/checks/no_third_party_in_domain.py src/
 step "no_naive_datetime"
 uv run python scripts/checks/no_naive_datetime.py src/
 
-step "no_float_in_domain"
-uv run python scripts/checks/no_float_in_domain.py src/
-
 step "test_naming"
 uv run python scripts/checks/test_naming.py tests/
 

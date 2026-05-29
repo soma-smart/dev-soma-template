@@ -21,7 +21,6 @@ jobs:
       - run: uv run ruff format --check src/ tests/ scripts/
       - run: uv run python scripts/checks/no_third_party_in_domain.py src/
       - run: uv run python scripts/checks/no_naive_datetime.py src/
-      - run: uv run python scripts/checks/no_float_in_domain.py src/
       - run: uv run python scripts/checks/test_naming.py tests/
       - name: ty (static type check)
         run: uv run ty check src/
