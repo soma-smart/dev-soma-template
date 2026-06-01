@@ -1,0 +1,77 @@
+{
+  "name": "{{ cookiecutter.project_name }}",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+
+  "remoteUser": "vscode",
+  "updateRemoteUserUID": true,
+
+  "containerEnv": {
+    "TZ": "Europe/Paris"
+  },
+
+  "mounts": [
+    "source=${localEnv:HOME}/.gitconfig,target=/home/vscode/.gitconfig,type=bind,readonly",
+    "source=${localEnv:HOME}/.ssh,target=/home/vscode/.ssh,type=bind,readonly"
+  ],
+
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "username": "vscode",
+      "uid": "automatic",
+      "gid": "automatic"
+    },
+    // Installs docker CLI inside the container and reconciles the vscode
+    // user with the host docker.sock GID at postCreate, so testcontainers
+    // can spawn ephemeral Postgres for integration tests. When the stack
+    // is brought up with plain 'docker compose up' (outside the devcontainer
+    // CLI flow), this Feature does NOT run and the pg_url fixture skips
+    // integration tests cleanly — that path is the documented fallback.
+    //
+    // moby=false: install upstream docker-ce-cli rather than Moby. The
+    // Microsoft devcontainers/python:3.13 base ships a Debian release for
+    // which the Moby package is not published; the Feature errors out
+    // with a clear hint pointing at this exact option.
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+      "moby": false
+    }
+  },
+  // just is baked into the Dockerfile so it is present even when the stack
+  // is brought up with plain `docker compose up` (outside the devcontainer
+  // CLI flow that applies Features).
+
+  "postCreateCommand": "just install && just hooks",
+  "postStartCommand": "just migrate || true",
+
+  "forwardPorts": [8000, 5432, 16686{% if cookiecutter.swagger_auth_scheme == "oauth2_auth_code" %}, 8080{% endif %}],
+  "portsAttributes": {
+    "8000": { "label": "FastAPI app", "onAutoForward": "openPreview" },
+    "5432": { "label": "Postgres", "onAutoForward": "silent" },
+    "16686": { "label": "Jaeger UI", "onAutoForward": "notify" }{% if cookiecutter.swagger_auth_scheme == "oauth2_auth_code" %},
+    "8080": { "label": "Keycloak (local IdP)", "onAutoForward": "silent" }{% endif %}
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "charliermarsh.ruff",
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "tamasfe.even-better-toml",
+        "redhat.vscode-yaml"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+        "[python]": {
+          "editor.defaultFormatter": "charliermarsh.ruff",
+          "editor.formatOnSave": true,
+          "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit",
+            "source.fixAll.ruff": "explicit"
+          }
+        }
+      }
+    }
+  }
+}

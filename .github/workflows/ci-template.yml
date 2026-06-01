@@ -1,0 +1,31 @@
+name: CI Template
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bake-smoke:
+    name: bake (3 combos, smoke)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v7
+        with: { enable-caching: true }
+      - run: uv sync --group dev
+      - run: uv run pytest -m unit -v
+      - run: uv run ruff check hooks/ tests/
+
+  bake-integration:
+    name: bake + ruff + custom lints + pytest unit on baked project
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v7
+        with: { enable-caching: true }
+      - run: uv sync --group dev
+      - run: uv run pytest -m integration -v

@@ -1,28 +1,45 @@
 [project]
-name = "REPLACE_ME"
-version = "0.1.0"
+name = "dev-soma-template"
+version = "2.0.0-dev"
+description = "Cookiecutter template for state-of-the-art SOMA Python services."
+readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+license = { text = "Proprietary" }
+dependencies = [
+    "cookiecutter>=2.6",
+]
 
 [dependency-groups]
 dev = [
-    "bandit>=1.8",
-    "mypy>=1.15",
-    "pip-audit>=2.9",
     "pytest>=8.0",
+    "pytest-cookies>=0.7",
     "ruff>=0.9",
 ]
 
 [tool.ruff]
 line-length = 120
 target-version = "py313"
+# The cookiecutter content tree contains Jinja-templated source files that are
+# not parseable until baked. Exclude the whole tree from ruff in the template
+# repo. The generated project ships its own ruff config that lints the baked
+# files normally.
+extend-exclude = [
+    "{{cookiecutter.project_slug}}",
+    "{{cookiecutter.project_slug}}/**",
+]
+force-exclude = true
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "S"]
+select = ["E", "F", "I", "B", "S", "UP", "RUF", "PTH"]
 
-[tool.mypy]
-strict = true
-ignore_missing_imports = true
+[tool.ruff.lint.per-file-ignores]
+"hooks/*.py" = ["S603", "S607"]
+"tests/*.py" = ["S101", "S603", "S607"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+    "unit: bake-time unit tests on the template",
+    "integration: tests that bake and run tooling on the produced project",
+]

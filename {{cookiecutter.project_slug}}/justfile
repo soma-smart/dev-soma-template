@@ -1,0 +1,146 @@
+# {{ cookiecutter.project_name }} — command runner.
+# Single source of truth for every command run by humans, Claude Code hooks,
+# and CI. If a command is run more than once, it lives here.
+#
+# Install just: `cargo install just` / `brew install just` / `apt install just`.
+# It is pre-installed in the devcontainer.
+
+set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
+
+# Default recipe: list everything with descriptions.
+default:
+    @just --list --unsorted
+
+# ─── Setup ──────────────────────────────────────────────────────────
+# Install runtime + dev dependencies via uv.
+install:
+    uv sync --group dev
+
+# Install all pre-commit and git hooks (pre-commit + commit-msg + pre-push).
+hooks:
+    uv run pre-commit install --install-hooks --hook-type pre-commit --hook-type commit-msg --hook-type pre-push
+
+# ─── Run ────────────────────────────────────────────────────────────
+# Start the FastAPI dev server with auto-reload.
+dev:
+    uv run uvicorn {{ cookiecutter.package_name }}.presentation.api.app:app --reload
+
+# Mint a local HS256 JWT signed with AUTH_JWT_SECRET — for calling protected
+# endpoints from curl / Postman during dev.
+# Usage:  just dev-token alice
+#         just dev-token alice admin,user
+dev-token SUBJECT ROLES="":
+    uv run python -m {{ cookiecutter.package_name }}.infrastructure.auth.dev_token "{{ '{{' }}SUBJECT{{ '}}' }}" "{{ '{{' }}ROLES{{ '}}' }}"
+
+# ─── Test ───────────────────────────────────────────────────────────
+# Fast feedback loop: unit tests only, stop on first failure.
+test:
+    uv run pytest -m unit -x -q
+
+# Watch mode: re-run unit tests on every file save (TDD inner loop).
+# Quit with Ctrl-C.
+test-watch:
+    uv run ptw --runner "uv run pytest -m unit -x -q" .
+
+# All tests (unit + integration + e2e). Requires Docker for testcontainers.
+test-all:
+    uv run pytest
+
+# Parallel run of the full suite. Each xdist worker spawns its own
+# testcontainers Postgres, so this only pays off once the suite is large
+# enough that wall-clock savings beat per-worker container startup
+# (rule of thumb: > ~100 integration/e2e tests on the machine).
+test-parallel:
+    uv run pytest -n auto
+
+# Integration tests only.
+test-integration:
+    uv run pytest -m integration
+
+# E2E tests only.
+test-e2e:
+    uv run pytest -m e2e
+
+# Mutation testing on domain + application (the layers with logic worth mutating).
+mutate:
+    uv run mutmut run
+
+# Show the latest mutmut report.
+mutate-results:
+    uv run mutmut results
+
+# ─── Quality ────────────────────────────────────────────────────────
+# Aggregator: ruff + ty + the four custom architectural lints.
+lint:
+    bash scripts/checks/quality.sh
+
+# Auto-format the codebase in place.
+fmt:
+    uv run ruff format src/ tests/ scripts/
+    uv run ruff check --fix src/ tests/ scripts/
+
+# Static type check.
+typecheck:
+    uv run ty check src/
+
+# ─── Database ───────────────────────────────────────────────────────
+# Apply all pending migrations (retries briefly to absorb startup races).
+migrate:
+    #!/usr/bin/env bash
+    set -e
+    i=0
+    until uv run alembic upgrade head; do
+        i=$((i+1))
+        if [ $i -ge 6 ]; then
+            echo "alembic upgrade head failed after 6 retries — is postgres reachable?" >&2
+            exit 1
+        fi
+        echo "alembic retrying in 2s (attempt $i/6)..."
+        sleep 2
+    done
+
+{% raw %}# Generate a new revision from current model state. Pass a short description.
+# Example: just migration "add_subscriptions_table"
+migration message:
+    uv run alembic revision --autogenerate -m "{{ message }}"
+{% endraw %}
+# Roll back the most recent revision (review the produced SQL first).
+migrate-down:
+    uv run alembic downgrade -1
+
+# ─── Docker / Helm ──────────────────────────────────────────────────
+# Build the production image locally as `app:dev`.
+docker-build:
+    docker build --target runtime -t app:dev .
+
+# Bring the local devcontainer stack down (volumes included) and back up
+# with a fresh build. Use this when you suspect the running containers
+# hold a stale workspace mount or postgres-data volume — typical after
+# re-baking the project into the same path or moving the project directory.
+# The standard VSCode "Reopen in Container" workflow does NOT need this.
+devcontainer-reset:
+    docker compose -f .devcontainer/docker-compose.yml down -v
+    docker compose -f .devcontainer/docker-compose.yml up -d --build
+
+{% raw %}# Render the chart with a chosen environment overlay (default: prod).
+# Example: just helm-render dev
+helm-render env="prod":
+    helm template t helm/{% endraw %}{{ cookiecutter.project_slug }}{% raw %} -f helm/{% endraw %}{{ cookiecutter.project_slug }}{% raw %}/values-{{ env }}.yaml --set secrets.dbUrl=postgresql+asyncpg://placeholder
+{% endraw %}
+# Lint the Helm chart.
+helm-lint:
+    helm lint helm/{{ cookiecutter.project_slug }}
+{%- if cookiecutter.frontend_sdk != "none" %}
+
+# ─── SDK ────────────────────────────────────────────────────────────
+# Export the OpenAPI schema to openapi.json (consumed by SDK gen workflow).
+openapi:
+    uv run python scripts/export_openapi.py openapi.json
+{%- endif %}
+
+# ─── CI surface (run locally what CI runs) ──────────────────────────
+# What ci-quality.yml runs on PR.
+ci-quality: lint test-all
+
+# What ci-mutation.yml runs on PR.
+ci-mutation: mutate

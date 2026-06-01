@@ -1,0 +1,188 @@
+# Default values for {{ cookiecutter.project_slug }}.
+# Per-environment overrides live in values-{dev,staging,prod}.yaml.
+# Schema is enforced by values.schema.json (helm validates against it).
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/{{ cookiecutter.author_name|lower }}/{{ cookiecutter.project_slug }}
+  pullPolicy: IfNotPresent
+  tag: ""  # defaults to .Chart.AppVersion
+
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  runAsGroup: 1001
+  fsGroup: 1001
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: [ALL]
+
+service:
+  type: ClusterIP
+  port: 8000
+
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  hosts:
+    - host: {{ cookiecutter.project_slug }}.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 512Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+# Must stay strictly greater than the uvicorn `--timeout-graceful-shutdown`
+# value baked into the Dockerfile (currently 30s) so K8s does not SIGKILL
+# the pod before the in-flight requests have drained.
+terminationGracePeriodSeconds: 35
+
+probes:
+  liveness:
+    path: /health/live           # process responsive — fail = pod restart
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  readiness:
+    path: /health/ready          # DB reachable — fail = removed from LB
+    initialDelaySeconds: 5
+    periodSeconds: 5
+  startup:
+    path: /health/startup        # boot finished — guards live/ready timeouts
+    failureThreshold: 30
+    periodSeconds: 5
+
+# Application config — exposed as env vars or read from a Secret/ConfigMap.
+config:
+  logFormat: json
+  logLevel: INFO
+  serviceName: {{ cookiecutter.package_name }}
+  otelExporterOtlpEndpoint: ""
+  otelTracesSamplerArg: "0.1"
+  corsAllowedOrigins: ""
+  # Database connection pool — tune per environment based on the expected
+  # concurrent request count vs. the database's max_connections budget.
+  dbPoolSize: "10"
+  dbPoolMaxOverflow: "5"
+  dbPoolTimeout: "30"               # seconds to wait for a free connection
+  # HTTP middleware — request body size cap and per-request timeout.
+  requestMaxBodyBytes: "1048576"    # 1 MiB
+  requestTimeoutSeconds: "30"
+  # Idempotency middleware (see building-a-feature § "Idempotency").
+  idempotencyEnabled: "true"
+  idempotencyMethods: "POST,PUT,PATCH,DELETE"
+  idempotencyTtlSeconds: "86400"    # 24h
+  # Auth — bearer-JWT verification. See the ``adding-auth`` skill for the
+  # swap path to a real IdP.
+  authJwtAlgorithm: "HS256"        # HS256 | RS256
+  authJwtJwksUrl: ""               # required when authJwtAlgorithm=RS256
+  authJwtAudience: ""              # leave empty to disable the aud check
+  authJwtIssuer: ""                # leave empty to disable the iss check
+  authJwtRolesClaim: "roles"       # dotted path inside the JWT claims
+  # Swagger UI OAuth2 — when BOTH AuthorizationUrl and TokenUrl are set,
+  # /docs publishes an OAuth2 Authorization Code + PKCE flow (clickable
+  # Authorize button). Otherwise falls back to HTTPBearer paste-once.
+  # See docs/swagger-oauth2.md for the IdP app-registration walkthrough.
+  swaggerOauth2AuthorizationUrl: ""
+  swaggerOauth2TokenUrl: ""
+  swaggerOauth2ClientId: ""        # ID of the SEPARATE Swagger-UI app on the IdP
+  swaggerOauth2Scopes: "openid,email,profile"
+  swaggerOauth2PkceEnabled: "true"
+
+# Secrets — by default empty; populate via a SealedSecret, ExternalSecret or
+# raw values overlay outside source control.
+secrets:
+  dbUrl: ""
+  authJwtSecret: ""                # required when authJwtAlgorithm=HS256
+
+# Migrations job — runs `alembic upgrade head` as a Helm pre-install/pre-upgrade
+# hook. Disable for projects that don't manage their schema with Alembic.
+migrations:
+  enabled: true
+  image:
+    repository: ""   # defaults to .Values.image.repository
+    tag: ""
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# Optional ServiceMonitor for Prometheus scraping of the API pod.
+metrics:
+  enabled: false
+  interval: 30s
+  path: /metrics
+  # PrometheusRule with sensible defaults. Tune the thresholds to your
+  # traffic profile before going live — defaults err on the conservative
+  # side to avoid alert fatigue. See the ``building-a-feature`` § "Transactions and events"
+  # and ``writing-a-helm-change`` skills for the lifecycle of each alert.
+  alerts:
+    enabled: false
+    # Extra labels merged into every alert — drive Alertmanager routing
+    # (team → channel, severity → page).
+    labels: {}
+    thresholds:
+      outboxBacklog: 1000             # rows pending — backlog signal
+      outboxLagSeconds: 300           # oldest pending age — primary lag signal
+      outboxHandlerErrorRate: 0.1     # handler failures / sec sustained over 5m
+      api5xxRate: 0.01                # fraction of 5xx responses sustained over 5m
+      apiP99LatencySeconds: 1.0       # /metrics histogram p99
+
+# Outbox relay — separate Deployment that polls outbox_events and dispatches
+# rows through the in-process handler registry (see ADR 0005 +
+# building-a-feature § "Transactions and events"). Same image as the API, different command.
+# Turn off via relay.enabled=false on projects that don't publish events.
+relay:
+  enabled: true
+  replicaCount: 1   # SKIP LOCKED is safe with >1; default kept conservative
+  metricsPort: 9100
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

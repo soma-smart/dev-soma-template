@@ -1,0 +1,33 @@
+{% raw %}apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "app.fullname" . }}-config
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
+data:
+  APP_NAME: {{ .Release.Name | quote }}
+  LOG_FORMAT: {{ .Values.config.logFormat | quote }}
+  LOG_LEVEL: {{ .Values.config.logLevel | quote }}
+  SERVICE_NAME: {{ .Values.config.serviceName | quote }}
+  OTEL_EXPORTER_OTLP_ENDPOINT: {{ .Values.config.otelExporterOtlpEndpoint | quote }}
+  OTEL_TRACES_SAMPLER_ARG: {{ .Values.config.otelTracesSamplerArg | quote }}
+  CORS_ALLOWED_ORIGINS: {{ .Values.config.corsAllowedOrigins | quote }}
+  DB_POOL_SIZE: {{ .Values.config.dbPoolSize | quote }}
+  DB_POOL_MAX_OVERFLOW: {{ .Values.config.dbPoolMaxOverflow | quote }}
+  DB_POOL_TIMEOUT: {{ .Values.config.dbPoolTimeout | quote }}
+  REQUEST_MAX_BODY_BYTES: {{ .Values.config.requestMaxBodyBytes | quote }}
+  REQUEST_TIMEOUT_SECONDS: {{ .Values.config.requestTimeoutSeconds | quote }}
+  IDEMPOTENCY_ENABLED: {{ .Values.config.idempotencyEnabled | quote }}
+  IDEMPOTENCY_METHODS: {{ .Values.config.idempotencyMethods | quote }}
+  IDEMPOTENCY_TTL_SECONDS: {{ .Values.config.idempotencyTtlSeconds | quote }}
+  AUTH_JWT_ALGORITHM: {{ .Values.config.authJwtAlgorithm | quote }}
+  AUTH_JWT_JWKS_URL: {{ .Values.config.authJwtJwksUrl | quote }}
+  AUTH_JWT_AUDIENCE: {{ .Values.config.authJwtAudience | quote }}
+  AUTH_JWT_ISSUER: {{ .Values.config.authJwtIssuer | quote }}
+  AUTH_JWT_ROLES_CLAIM: {{ .Values.config.authJwtRolesClaim | quote }}
+  SWAGGER_OAUTH2_AUTHORIZATION_URL: {{ .Values.config.swaggerOauth2AuthorizationUrl | quote }}
+  SWAGGER_OAUTH2_TOKEN_URL: {{ .Values.config.swaggerOauth2TokenUrl | quote }}
+  SWAGGER_OAUTH2_CLIENT_ID: {{ .Values.config.swaggerOauth2ClientId | quote }}
+  SWAGGER_OAUTH2_SCOPES: {{ .Values.config.swaggerOauth2Scopes | quote }}
+  SWAGGER_OAUTH2_PKCE_ENABLED: {{ .Values.config.swaggerOauth2PkceEnabled | quote }}
+{% endraw %}

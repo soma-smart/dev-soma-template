@@ -1,0 +1,201 @@
+[project]
+name = "{{ cookiecutter.project_slug }}"
+version = "0.1.0"
+description = "{{ cookiecutter.project_description }}"
+readme = "README.md"
+requires-python = ">={{ cookiecutter.python_version }}"
+authors = [{ name = "{{ cookiecutter.author_name }}", email = "{{ cookiecutter.author_email }}" }]
+{%- if cookiecutter.license == "MIT" %}
+license = { text = "MIT" }
+{%- elif cookiecutter.license == "Apache-2.0" %}
+license = { text = "Apache-2.0" }
+{%- else %}
+license = { text = "Proprietary" }
+{%- endif %}
+
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.12",
+    "pydantic[email]>=2.12",
+    "pydantic-settings>=2.13",
+    "structlog>=24.4",
+    "sqlalchemy[asyncio]>=2.0",
+    "asyncpg>=0.30",
+    "aiosqlite>=0.20",
+    "alembic>=1.14",
+{%- if cookiecutter.include_otel == "yes" %}
+    "opentelemetry-api>=1.29",
+    "opentelemetry-sdk>=1.29",
+    "opentelemetry-exporter-otlp>=1.29",
+    "opentelemetry-instrumentation-fastapi>=0.50b0",
+    "opentelemetry-instrumentation-sqlalchemy>=0.50b0",
+    "opentelemetry-instrumentation-asyncpg>=0.50b0",
+    "opentelemetry-instrumentation-httpx>=0.50b0",
+    "opentelemetry-instrumentation-logging>=0.50b0",
+{%- endif %}
+    "httpx>=0.28",
+    "prometheus-client>=0.21",
+    "prometheus-fastapi-instrumentator>=7.0",
+    "pyjwt[crypto]>=2.10",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.25",
+    "pytest-cov>=6.0",
+    "pytest-watcher>=0.4",
+    "pytest-xdist>=3.6",
+    "httpx>=0.28",
+    "respx>=0.21",
+    "testcontainers[postgresql]>=4.9",
+    "mutmut>=3.2",
+    "ruff>=0.9",
+    "ty>=0.0.1a1",
+    "pre-commit>=4.0",
+    "commitizen>=4.1",
+    "bandit>=1.8",
+    "pip-audit>=2.9",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/{{ cookiecutter.package_name }}"]
+
+# ─── Ruff ──────────────────────────────────────────────────────────────
+[tool.ruff]
+line-length = 120
+target-version = "py{{ cookiecutter.python_version|replace('.', '') }}"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+# D2 ruleset.
+select = [
+    "E", "F", "I", "B", "S",      # base
+    "UP",                          # pyupgrade
+    "ANN",                         # annotations
+    "ARG",                         # unused args
+    "RET",                         # explicit returns
+    "SIM",                         # simplifications
+    "TC",                          # TYPE_CHECKING imports (renamed from TCH in ruff 0.15)
+    "PTH",                         # pathlib
+    "T20",                         # no print
+    "ERA",                         # no commented-out code
+    "RUF",                         # ruff-specific
+    "C90",                         # cyclomatic
+    "D",                           # docstrings (Google)
+    "N",                           # PEP8 naming
+    "TID",                         # tidy imports
+    "PL",                          # pylint subset
+]
+ignore = [
+    "D100",     # Missing docstring in public module — module name is enough
+    "D104",     # Missing docstring in public package
+    "D105",     # Missing docstring in magic method
+    "D107",     # Missing docstring in __init__
+    "D203",     # 1 blank line before class docstring (conflicts with D211)
+    "D213",     # Multi-line summary on second line (conflicts with D212)
+    "ANN401",   # Any allowed at boundaries (parsing, structlog kwargs)
+    "B008",     # Function call in default argument — FastAPI Depends() is idiomatic
+    "TC001",    # TYPE_CHECKING imports — too aggressive, hurts readability
+    "TC002",
+    "TC003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106", "ANN", "D", "PLR2004", "ARG", "PLR0913"]
+"alembic/versions/*" = ["D", "ERA"]
+"scripts/**" = ["T20"]
+# dev-token is a CLI tool that legitimately prints a freshly minted token
+# to stdout — T201 (no-print) is wrong for this single file.
+"src/{{ cookiecutter.package_name }}/infrastructure/auth/dev_token.py" = ["T20"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+# Cross-layer imports are forbidden by Clean Architecture.
+# Enforced more thoroughly by scripts/checks/no_third_party_in_domain.py.
+
+[tool.ruff.lint.isort]
+# Keep ``tests.*`` imports in their own group, separated from the
+# project package. Without this, the alphabetical order between
+# ``tests`` and ``{{ cookiecutter.package_name }}`` depends on the
+# package name's first letter — a baked project named ``zebra`` would
+# sort imports differently from one named ``alpha``. Forcing the split
+# makes the layout deterministic regardless of the chosen package name.
+forced-separate = ["tests"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+# ─── ty (Astral type checker) ──────────────────────────────────────────
+[tool.ty]
+# Phase B starts non-strict to avoid false positives on Pydantic/SQLAlchemy.
+# Phase D2 will set strict mode.
+
+# ─── pytest ────────────────────────────────────────────────────────────
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+asyncio_mode = "auto"
+# Session-scoped event loop so session-scoped async fixtures (pg_engine,
+# pg_session) keep the same loop across tests. Without this, pytest-asyncio
+# 0.25+ creates a new loop per test and SQLAlchemy raises
+# "Future attached to a different loop".
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+markers = [
+    "unit: pure unit tests, no I/O, no testcontainers",
+    "integration: require testcontainers or external service mocks",
+    "e2e: full stack via httpx.AsyncClient",
+]
+
+# ─── Coverage ──────────────────────────────────────────────────────────
+[tool.coverage.run]
+source = ["src/{{ cookiecutter.package_name }}"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 95
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]
+
+# ─── mutmut ────────────────────────────────────────────────────────────
+# Mutmut 3.5+ requires LIST values, not strings, for paths_to_mutate and
+# tests_dir. Without ``also_copy``, mutmut tries to clone "/sys/class/powercap"
+# and other unrelated paths, producing FileNotFoundError on Linux hosts.
+[tool.mutmut]
+paths_to_mutate = [
+    "src/{{ cookiecutter.package_name }}/domain",
+    "src/{{ cookiecutter.package_name }}/application",
+]
+also_copy = [
+    "src/{{ cookiecutter.package_name }}/infrastructure",
+    "src/{{ cookiecutter.package_name }}/presentation",
+    "src/{{ cookiecutter.package_name }}/__init__.py",
+    "tests",
+    "pyproject.toml",
+    "uv.lock",
+    "alembic",
+    "alembic.ini",
+]
+runner = "uv run pytest -m unit -x -q"
+tests_dir = ["tests/unit"]
+
+# ─── Commitizen ────────────────────────────────────────────────────────
+[tool.commitizen]
+name = "cz_conventional_commits"
+version_provider = "pep621"
+update_changelog_on_bump = true
+tag_format = "v$version"

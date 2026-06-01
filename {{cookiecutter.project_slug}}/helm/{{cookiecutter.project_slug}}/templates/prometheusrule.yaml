@@ -1,0 +1,154 @@
+{% raw %}{{- if and .Values.metrics.enabled .Values.metrics.alerts.enabled -}}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "app.fullname" . }}-alerts
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
+    {{- with .Values.metrics.alerts.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  groups:
+    # --- Outbox relay -----------------------------------------------
+    # Read the ``building-a-feature`` § "Transactions and events" for the runbook backing
+    # each alert: manual replay, scaling, dead-letter inspection.
+    - name: {{ include "app.name" . }}.outbox
+      rules:
+        - alert: OutboxBacklog
+          expr: outbox_events_pending > {{ .Values.metrics.alerts.thresholds.outboxBacklog }}
+          for: 5m
+          labels:
+            severity: warning
+            service: {{ include "app.name" . }}
+            component: relay
+            {{- with .Values.metrics.alerts.labels }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          annotations:
+            summary: "Outbox backlog above {{ .Values.metrics.alerts.thresholds.outboxBacklog }}"
+            description: "More than {{ .Values.metrics.alerts.thresholds.outboxBacklog }} rows are sitting in outbox_events with status='pending' for 5+ minutes. Producer outpacing the relay, or relay stuck. Inspect logs of the {{ include "app.fullname" . }}-relay Deployment."
+            runbook_url: "docs/runbooks/disaster-recovery.md#outbox-backlog-growing--lag-too-high"
+
+        - alert: OutboxLag
+          expr: outbox_oldest_pending_age_seconds > {{ .Values.metrics.alerts.thresholds.outboxLagSeconds }}
+          for: 2m
+          labels:
+            severity: warning
+            service: {{ include "app.name" . }}
+            component: relay
+            {{- with .Values.metrics.alerts.labels }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          annotations:
+            summary: "Outbox oldest pending row older than {{ .Values.metrics.alerts.thresholds.outboxLagSeconds }}s"
+            description: "The oldest pending outbox row has been waiting > {{ .Values.metrics.alerts.thresholds.outboxLagSeconds }} seconds. Either the relay is not running, or all handlers are failing on the head-of-line row. Check the relay Deployment status and the last_error column on outbox_events."
+            runbook_url: "docs/runbooks/disaster-recovery.md#outbox-backlog-growing--lag-too-high"
+
+        - alert: OutboxPoisoned
+          expr: outbox_events_poisoned > 0
+          for: 1m
+          labels:
+            severity: critical
+            service: {{ include "app.name" . }}
+            component: relay
+            {{- with .Values.metrics.alerts.labels }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          annotations:
+            summary: "Poisoned outbox rows present - manual triage required"
+            description: "One or more rows have exhausted their retries (MAX_ATTEMPTS=10). Inspect them with SELECT id, event_name, last_error FROM outbox_events WHERE status='poisoned'. Manual replay procedure in the building-a-feature § 'Transactions and events' section."
+            runbook_url: "docs/runbooks/disaster-recovery.md#outbox-poisoned-rows-present"
+
+        - alert: OutboxHandlerErrorRate
+          expr: sum(rate(outbox_handler_failures_total[5m])) > {{ .Values.metrics.alerts.thresholds.outboxHandlerErrorRate }}
+          for: 5m
+          labels:
+            severity: warning
+            service: {{ include "app.name" . }}
+            component: relay
+            {{- with .Values.metrics.alerts.labels }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          annotations:
+            summary: "Outbox handler failure rate above {{ .Values.metrics.alerts.thresholds.outboxHandlerErrorRate }}/s"
+            description: "Sustained handler failures on the relay. Likely a handler regression or a downstream outage. Group by event_name in Prometheus to pinpoint which handler is failing."
+            runbook_url: "docs/runbooks/disaster-recovery.md#outbox-backlog-growing--lag-too-high"
+
+    # --- API --------------------------------------------------------
+    - name: {{ include "app.name" . }}.api
+      rules:
+        - alert: ApiHigh5xxRate
+          expr: |
+            sum(rate(http_requests_total{status=~"5..",service="{{ include "app.fullname" . }}"}[5m]))
+              /
+            sum(rate(http_requests_total{service="{{ include "app.fullname" . }}"}[5m]))
+              > {{ .Values.metrics.alerts.thresholds.api5xxRate }}
+          for: 5m
+          labels:
+            severity: critical
+            service: {{ include "app.name" . }}
+            component: api
+            {{- with .Values.metrics.alerts.labels }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          annotations:
+            summary: "HTTP 5xx rate above {{ .Values.metrics.alerts.thresholds.api5xxRate }}"
+            description: "More than {{ .Values.metrics.alerts.thresholds.api5xxRate }} of requests are returning 5xx over the last 5 minutes. Check API pod logs and recent deploys."
+            runbook_url: "docs/runbooks/disaster-recovery.md#api-cannot-reach-db"
+
+        - alert: ApiHighP99Latency
+          expr: |
+            histogram_quantile(
+              0.99,
+              sum by (le) (rate(http_request_duration_seconds_bucket{service="{{ include "app.fullname" . }}"}[5m]))
+            ) > {{ .Values.metrics.alerts.thresholds.apiP99LatencySeconds }}
+          for: 10m
+          labels:
+            severity: warning
+            service: {{ include "app.name" . }}
+            component: api
+            {{- with .Values.metrics.alerts.labels }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          annotations:
+            summary: "API p99 latency above {{ .Values.metrics.alerts.thresholds.apiP99LatencySeconds }}s"
+            description: "The p99 request latency has been above {{ .Values.metrics.alerts.thresholds.apiP99LatencySeconds }}s for 10 minutes. Investigate slow endpoints with the per-handler buckets and recent DB query plans."
+            runbook_url: "docs/runbooks/disaster-recovery.md#api-cannot-reach-db"
+
+        - alert: ApiNoReplicasReady
+          expr: kube_deployment_status_replicas_available{namespace="{{ .Release.Namespace }}",deployment="{{ include "app.fullname" . }}"} == 0
+          for: 2m
+          labels:
+            severity: critical
+            service: {{ include "app.name" . }}
+            component: api
+            {{- with .Values.metrics.alerts.labels }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          annotations:
+            summary: "API has zero ready replicas"
+            description: "Deployment {{ include "app.fullname" . }} in namespace {{ .Release.Namespace }} has no ready replica for 2 minutes. The service is unavailable. Check pod events and image pull / probe failures."
+            runbook_url: "docs/runbooks/disaster-recovery.md#api-has-zero-ready-replicas"
+
+    {{- if .Values.relay.enabled }}
+    # --- Relay availability -----------------------------------------
+    - name: {{ include "app.name" . }}.relay
+      rules:
+        - alert: RelayNoReplicasReady
+          expr: kube_deployment_status_replicas_available{namespace="{{ .Release.Namespace }}",deployment="{{ include "app.fullname" . }}-relay"} == 0
+          for: 2m
+          labels:
+            severity: critical
+            service: {{ include "app.name" . }}
+            component: relay
+            {{- with .Values.metrics.alerts.labels }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          annotations:
+            summary: "Outbox relay has zero ready replicas"
+            description: "Deployment {{ include "app.fullname" . }}-relay in namespace {{ .Release.Namespace }} has no ready replica for 2 minutes. Events will pile up in outbox_events. Inspect pod events."
+            runbook_url: "docs/runbooks/disaster-recovery.md#outbox-backlog-growing--lag-too-high"
+    {{- end }}
+{{- end }}
+{% endraw %}

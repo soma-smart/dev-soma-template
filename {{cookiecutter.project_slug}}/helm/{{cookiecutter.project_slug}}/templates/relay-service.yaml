@@ -1,0 +1,22 @@
+{% raw %}{{- if .Values.relay.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "app.fullname" . }}-relay
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: relay
+spec:
+  # ClusterIP only — the relay exposes /metrics for Prometheus scrape;
+  # never expose it through an Ingress.
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.relay.metricsPort }}
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+  selector:
+    {{- include "app.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: relay
+{{- end }}
+{% endraw %}

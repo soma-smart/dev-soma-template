@@ -1,0 +1,148 @@
+# Local development stack: app container + Postgres + Jaeger + OTel collector.
+# Volumes are named so DB state survives container rebuilds.
+# Networking: all services share the default network of this compose file.
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # post-up.sh fixes docker.sock GID access for vscode when the stack is
+    # brought up via plain `docker compose up` (the devcontainer CLI would
+    # otherwise run the docker-outside-of-docker:1 Feature). Idempotent.
+    command: ["bash", "-c", "sudo /workspaces/{{ cookiecutter.project_slug }}/.devcontainer/post-up.sh || true; exec sleep infinity"]
+    volumes:
+      - ../..:/workspaces:cached
+      # Mount the host docker.sock so testcontainers can spawn ephemeral
+      # containers from inside the devcontainer (used by integration tests).
+      # SECURITY: this gives the devcontainer root-equivalent access to the
+      # host. Standard trade-off for "Docker outside of Docker" dev setups.
+      # If you don't run integration tests from inside the devcontainer,
+      # comment this line out — the test fixture pg_url will skip cleanly.
+      - /var/run/docker.sock:/var/run/docker.sock
+    # Make host.docker.internal resolve from inside the devcontainer (Linux
+    # needs this; macOS/Windows resolve it automatically). testcontainers
+    # uses it to reach ephemeral PG containers running on the host.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      DB_URL: postgresql+asyncpg://app:app@postgres:5432/{{ cookiecutter.package_name }}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      LOG_FORMAT: console
+      LOG_LEVEL: DEBUG
+      # testcontainers-python: rewrite the spawned container's host from
+      # localhost to host.docker.internal so our tests reach it.
+      TESTCONTAINERS_HOST_OVERRIDE: host.docker.internal
+    depends_on:
+      postgres:
+        condition: service_healthy
+{%- if cookiecutter.swagger_auth_scheme == "oauth2_auth_code" %}
+      keycloak:
+        condition: service_healthy
+{%- endif %}
+{%- if cookiecutter.include_otel == "yes" %}
+      jaeger:
+        condition: service_started
+      otel-collector:
+        condition: service_started
+{%- endif %}
+    networks:
+      - soma-dev
+
+  # Outbox relay sidecar — auto-starts so domain events emitted by the API
+  # flow through to handlers without manual intervention. Shares the same
+  # workspace mount as `app` so it picks up code changes; restarts in a
+  # loop while migrations haven't run yet (table missing → restart).
+  relay:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /workspaces/{{ cookiecutter.project_slug }}
+    command: ["sh", "-c", "uv sync --group dev && uv run python -m {{ cookiecutter.package_name }}.infrastructure.jobs.outbox_relay"]
+    volumes:
+      - ../..:/workspaces:cached
+    environment:
+      DB_URL: postgresql+asyncpg://app:app@postgres:5432/{{ cookiecutter.package_name }}
+      LOG_FORMAT: console
+      LOG_LEVEL: DEBUG
+{%- if cookiecutter.include_otel == "yes" %}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+{%- endif %}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - soma-dev
+
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: {{ cookiecutter.package_name }}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d {{ cookiecutter.package_name }}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - soma-dev
+
+{%- if cookiecutter.swagger_auth_scheme == "oauth2_auth_code" %}
+  # Local IdP for the OAuth2 Authorization Code flow exposed by Swagger UI.
+  # Realm 'dev' is auto-imported on first start; seeded users: alice/alice
+  # (regular), admin/admin (admin role). Tokens carry aud=api.
+  # Browser → http://localhost:8080  |  App container → http://keycloak:8080
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command:
+      - start-dev
+      - --import-realm
+      - --http-port=8080
+      - --hostname-strict=false
+      - --hostname=http://localhost:8080
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HEALTH_ENABLED: "true"
+      KC_LOG_LEVEL: WARN
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080 && echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '\"status\": \"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+    networks:
+      - soma-dev
+{%- endif %}
+
+{%- if cookiecutter.include_otel == "yes" %}
+  jaeger:
+    image: jaegertracing/all-in-one:1.75.0
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    networks:
+      - soma-dev
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.140.0
+    command: ["--config=/etc/otel-collector.yaml"]
+    volumes:
+      - ./otel-collector.yaml:/etc/otel-collector.yaml:ro
+    depends_on:
+      - jaeger
+    networks:
+      - soma-dev
+{%- endif %}
+
+volumes:
+  postgres-data:
+
+networks:
+  soma-dev:
+    driver: bridge

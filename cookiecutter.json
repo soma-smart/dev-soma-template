@@ -1,0 +1,30 @@
+{
+  "project_name": "My SOMA Service",
+  "project_slug": "{{ cookiecutter.project_name|lower|replace(' ', '-')|replace('_', '-') }}",
+  "package_name": "{{ cookiecutter.project_slug|replace('-', '_') }}",
+  "project_description": "Short one-line description of the service.",
+  "author_name": "SOMA",
+  "author_email": "team@soma-smart.com",
+  "python_version": ["3.13", "3.14"],
+  "database": ["postgres", "sqlite"],
+  "include_helm": ["yes", "no"],
+  "include_otel": ["yes", "no"],
+  "frontend_sdk": ["none", "typescript"],
+  "swagger_auth_scheme": ["http_bearer", "oauth2_auth_code"],
+  "license": ["proprietary", "MIT", "Apache-2.0"],
+  "__prompts__": {
+    "project_name": "Nom du projet (lisible, ex: 'Billing API')",
+    "project_slug": "Auto-généré depuis le nom — utilisé pour le dossier et l'URL du repo",
+    "package_name": "Auto-généré depuis le slug — ce que tu importes en Python",
+    "project_description": "Une phrase qui dit ce que le service fait (apparaît dans le README et l'OpenAPI)",
+    "author_name": "Toi ou ton équipe",
+    "author_email": "Email de contact",
+    "python_version": "Version de Python visée",
+    "database": "Moteur de base de données. SOMA utilise sqlite dans le devcontainer (léger, pas de serveur à lancer en local) et postgres pour le déploiement via Helm.",
+    "include_helm": "Générer la config pour rendre l'application disponible à SOMA",
+    "include_otel": "Activer le tracing + les métriques (OpenTelemetry) pour voir ce qui se passe en prod (requêtes lentes, erreurs externes, etc.) ?",
+    "frontend_sdk": "Si un frontend (React, Vue, etc.) va consommer ton API, mets 'typescript' : une lib cliente typée est générée et publiée à chaque push. 'none' si pas de frontend JS.",
+    "swagger_auth_scheme": "Comment un dev se connecte quand il essaie l'API depuis Swagger UI : 'http_bearer' = il colle un token à la main (marche avec n'importe quel fournisseur, accepte aussi des tokens de dev) ; 'oauth2_auth_code' = bouton 'Login with <ton IdP>' en un clic (marche uniquement avec l'IdP que tu auras enregistré — ex : Azure AD pour soma-smart.com). Le code supporte les deux ; ce choix ne change que l'expérience par défaut dans Swagger.",
+    "license": "Qui a le droit d'utiliser le code : 'proprietary' = SOMA uniquement, pas de partage externe (défaut, choix sûr pour un service interne) ; 'MIT' = très permissive, tout le monde peut utiliser/modifier/revendre sans contrainte (pour une lib open source simple) ; 'Apache-2.0' = permissive comme MIT mais avec une clause explicite sur les brevets (à choisir pour de l'open source qui touche à des algos / brevets)."
+  }
+}

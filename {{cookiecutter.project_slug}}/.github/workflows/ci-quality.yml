@@ -1,0 +1,58 @@
+name: CI Quality
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${% raw %}{{ github.workflow }}-${{ github.ref }}{% endraw %}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-types:
+    name: ruff + ty + custom lints
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v7
+        with: { enable-caching: true }
+      - run: uv sync --frozen --group dev
+      - run: uv run ruff check src/ tests/ scripts/
+      - run: uv run ruff format --check src/ tests/ scripts/
+      - run: uv run python scripts/checks/no_third_party_in_domain.py src/
+      - run: uv run python scripts/checks/no_naive_datetime.py src/
+      - run: uv run python scripts/checks/test_naming.py tests/
+      - name: ty (static type check)
+        run: uv run ty check src/
+
+  test-unit:
+    name: pytest unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v7
+        with: { enable-caching: true }
+      - run: uv sync --frozen --group dev
+      - run: uv run pytest -m unit --cov --cov-report=xml --cov-report=term
+
+  test-integration:
+    name: pytest integration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v7
+        with: { enable-caching: true }
+      - run: uv sync --frozen --group dev
+      - run: uv run pytest -m integration
+
+  test-e2e:
+    name: pytest e2e
+    runs-on: ubuntu-latest
+    env:
+      DB_URL: sqlite+aiosqlite:///./test.db
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v7
+        with: { enable-caching: true }
+      - run: uv sync --frozen --group dev
+      - run: uv run pytest -m e2e

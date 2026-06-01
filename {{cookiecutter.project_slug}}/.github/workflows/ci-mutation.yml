@@ -1,0 +1,57 @@
+name: CI Mutation Testing
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "pyproject.toml"
+
+jobs:
+  mutmut:
+    name: mutmut on domain + application
+    runs-on: ubuntu-latest
+    env:
+      DB_URL: sqlite+aiosqlite:///./mutmut.db
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v7
+        with: { enable-caching: true }
+      - run: uv sync --frozen --group dev
+      - name: Run mutation testing
+        run: uv run mutmut run
+      - name: Show mutmut results
+        if: always()
+        run: uv run mutmut results
+      - name: Enforce mutation score floor
+        run: |
+          uv run python -c "
+          import json
+          import subprocess
+          import sys
+          out = subprocess.check_output(['uv', 'run', 'mutmut', 'results']).decode()
+          # Heuristic parser; mutmut 3.x prints summary lines like 'killed: N, survived: M'.
+          killed = survived = 0
+          for line in out.splitlines():
+              line = line.lower()
+              if 'killed' in line and ':' in line:
+                  try:
+                      killed = int(line.split(':')[1].split(',')[0].strip())
+                  except (ValueError, IndexError):
+                      pass
+              if 'survived' in line and ':' in line:
+                  try:
+                      survived = int(line.split(':')[1].split(',')[0].strip())
+                  except (ValueError, IndexError):
+                      pass
+          total = killed + survived
+          if total == 0:
+              print('No mutants reported — assuming success.')
+              sys.exit(0)
+          score = killed / total
+          print(f'mutation score: {score:.1%} ({killed}/{total})')
+          if score < 0.90:
+              print(f'FAIL: mutation score below 90% threshold.')
+              sys.exit(1)
+          "

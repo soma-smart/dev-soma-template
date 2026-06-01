@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "{{ cookiecutter.project_slug }} chart values",
+  "type": "object",
+  "required": ["image", "config"],
+  "properties": {
+    "replicaCount": { "type": "integer", "minimum": 1 },
+    "terminationGracePeriodSeconds": { "type": "integer", "minimum": 1 },
+    "image": {
+      "type": "object",
+      "required": ["repository"],
+      "properties": {
+        "repository": { "type": "string", "minLength": 1 },
+        "pullPolicy": { "enum": ["Always", "IfNotPresent", "Never"] },
+        "tag": { "type": "string" }
+      }
+    },
+    "service": {
+      "type": "object",
+      "properties": {
+        "type": { "enum": ["ClusterIP", "NodePort", "LoadBalancer"] },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+      }
+    },
+    "config": {
+      "type": "object",
+      "required": ["logFormat", "logLevel", "serviceName"],
+      "properties": {
+        "logFormat": { "enum": ["console", "json"] },
+        "logLevel": { "enum": ["DEBUG", "INFO", "WARNING", "ERROR"] },
+        "serviceName": { "type": "string" },
+        "otelExporterOtlpEndpoint": { "type": "string" },
+        "otelTracesSamplerArg": { "type": "string" },
+        "corsAllowedOrigins": { "type": "string" },
+        "dbPoolSize": { "type": "string", "pattern": "^[0-9]+$" },
+        "dbPoolMaxOverflow": { "type": "string", "pattern": "^[0-9]+$" },
+        "dbPoolTimeout": { "type": "string", "pattern": "^[0-9]+$" },
+        "requestMaxBodyBytes": { "type": "string", "pattern": "^[0-9]+$" },
+        "requestTimeoutSeconds": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?$" },
+        "idempotencyEnabled": { "enum": ["true", "false"] },
+        "idempotencyMethods": { "type": "string" },
+        "idempotencyTtlSeconds": { "type": "string", "pattern": "^[0-9]+$" },
+        "authJwtAlgorithm": { "enum": ["HS256", "RS256"] },
+        "authJwtJwksUrl": { "type": "string" },
+        "authJwtAudience": { "type": "string" },
+        "authJwtIssuer": { "type": "string" },
+        "authJwtRolesClaim": { "type": "string" },
+        "swaggerOauth2AuthorizationUrl": { "type": "string" },
+        "swaggerOauth2TokenUrl": { "type": "string" },
+        "swaggerOauth2ClientId": { "type": "string" },
+        "swaggerOauth2Scopes": { "type": "string" },
+        "swaggerOauth2PkceEnabled": { "enum": ["true", "false"] }
+      }
+    },
+    "secrets": {
+      "type": "object",
+      "properties": {
+        "dbUrl": { "type": "string" },
+        "authJwtSecret": { "type": "string" }
+      }
+    },
+    "ingress": { "type": "object" },
+    "resources": { "type": "object" },
+    "autoscaling": { "type": "object" },
+    "podDisruptionBudget": { "type": "object" },
+    "probes": { "type": "object" },
+    "migrations": { "type": "object" },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "interval": { "type": "string" },
+        "path": { "type": "string" },
+        "alerts": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "labels": { "type": "object" },
+            "thresholds": {
+              "type": "object",
+              "properties": {
+                "outboxBacklog": { "type": "integer", "minimum": 1 },
+                "outboxLagSeconds": { "type": "integer", "minimum": 1 },
+                "outboxHandlerErrorRate": { "type": "number", "minimum": 0 },
+                "api5xxRate": { "type": "number", "minimum": 0, "maximum": 1 },
+                "apiP99LatencySeconds": { "type": "number", "minimum": 0 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "relay": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "replicaCount": { "type": "integer", "minimum": 1 },
+        "metricsPort": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "resources": { "type": "object" }
+      }
+    },
+    "podSecurityContext": { "type": "object" },
+    "securityContext": { "type": "object" },
+    "serviceAccount": { "type": "object" },
+    "imagePullSecrets": { "type": "array" },
+    "podAnnotations": { "type": "object" },
+    "podLabels": { "type": "object" },
+    "nodeSelector": { "type": "object" },
+    "tolerations": { "type": "array" },
+    "affinity": { "type": "object" },
+    "nameOverride": { "type": "string" },
+    "fullnameOverride": { "type": "string" }
+  }
+}

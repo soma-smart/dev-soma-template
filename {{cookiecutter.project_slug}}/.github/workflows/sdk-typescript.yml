@@ -1,0 +1,68 @@
+name: SDK TypeScript
+
+# Generates a TypeScript client SDK from the OpenAPI schema and uploads it
+# as a GitHub artefact. Triggered when the API surface or DTOs change.
+#
+# Extension points commented inline: pushing the SDK to a separate repo or
+# publishing to npm with semver bumps. The base workflow stops at artefact
+# upload to keep the template's prerequisites minimal (no npm token).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**/presentation/**"
+      - "src/**/application/dtos/**"
+      - "scripts/export_openapi.py"
+      - ".github/workflows/sdk-typescript.yml"
+  workflow_dispatch: {}
+
+jobs:
+  generate:
+    name: openapi-generator → typescript-fetch
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v7
+        with: { enable-caching: true }
+
+      - run: uv sync --frozen --group dev
+
+      - name: Export OpenAPI schema
+        run: uv run python scripts/export_openapi.py openapi.json
+
+      - name: Set up Java (openapi-generator runtime)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Generate TypeScript client (typescript-fetch)
+        uses: openapi-generators/openapitools-generator-action@v1
+        with:
+          generator: typescript-fetch
+          openapi-file: openapi.json
+          command-args: -o sdk-typescript --skip-validate-spec
+
+      - name: Upload SDK artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdk-typescript
+          path: sdk-typescript/
+          retention-days: 90
+
+      # Optional: push the generated SDK to a separate repo
+      # - name: Push SDK to client repo
+      #   uses: peaceiris/actions-gh-pages@v4
+      #   with:
+      #     external_repository: my-org/{{ cookiecutter.project_slug }}-ts-sdk
+      #     publish_dir: ./sdk-typescript
+      #     deploy_key: ${% raw %}{{ secrets.SDK_DEPLOY_KEY }}{% endraw %}
+
+      # Optional: publish to npm
+      # - uses: actions/setup-node@v4
+      #   with: { node-version: '20', registry-url: 'https://registry.npmjs.org' }
+      # - run: cd sdk-typescript && npm publish --access public
+      #   env:
+      #     NODE_AUTH_TOKEN: ${% raw %}{{ secrets.NPM_TOKEN }}{% endraw %}
