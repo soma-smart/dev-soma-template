@@ -10,19 +10,33 @@ A new feature crosses all four layers. The discipline is **outside-in**: start f
 
 This skill is the runbook the main agent follows. There is no sub-agent dispatch — every step runs in the current conversation with `tdd-workflow`, `writing-domain-code`, `onboarding-soma` (naming + DI + observability) loaded as references.
 
-## Flow
+## Flow — required runbook
+
+Every feature walks §1 → §11 in order, regardless of complexity. Each step is **one** of these:
 
 1. **Parse the prompt** — usually a one-liner.
-2. **Ask clarification questions** using the question packs below.
+2. **Ask clarification questions** using the question packs in §2.
 3. **Produce the 5-section outside-in plan**.
-4. **User validates**.
-5. **Use case TDD** — outer test, then `ImportError` chain. (unit tests with Fakes)
-6. **Persistence TDD** — SQLAlchemy model, repository binding, Alembic migration. (integration tests with testcontainers)
-7. **Route TDD** — Pydantic schemas, FastAPI route, container factory, `Depends` wrapper. (1 happy + 1 critical e2e test)
-8. **Container wiring** — register new factories in `infrastructure/container.py` and dependency wrappers.
+4. **User validates** — MANDATORY HARD GATE.
+5. **Use case TDD** — outer test, then `ImportError` chain (unit tests with Fakes).
+6. **Persistence TDD** — SQLAlchemy model, repository binding, Alembic migration (integration tests with testcontainers).
+7. **Route TDD** — Pydantic schemas, FastAPI route, container factory, `Depends` wrapper (1 happy + 1 critical e2e test).
+8. **Container wiring** — register new factories in `infrastructure/container.py`.
 9. **Mutate** — `just mutate` until kill rate ≥ 90%.
 10. **Final lint** — `just lint`, GIVEN/WHEN/THEN check, domain purity check.
 11. **Commit** — one conventional-commit per feature, no `--no-verify`.
+
+## Conditional appendices — load only when relevant
+
+Skip unless the trigger matches. Each appendix is self-contained at its anchor.
+
+| Appendix | Read when… |
+|---|---|
+| § Adding a new abstraction | the use case needs a collaborator role that is NOT one of `Clock`, `IdGenerator`, `RandomSource`, `EventBus`, `AuditLog`, `<Entity>Repository`. |
+| § Aggregates with nested children (inside §6) | the aggregate root owns a collection of child entities (TodoList → TodoItem[]). |
+| § Testing external HTTP adapters | the feature has an outbound integration to a SaaS you cannot self-host (Stripe, Twilio, OpenAI, Auth0, …). |
+| § Transactions and events | the feature emits a domain event, or you need to reason about transactional semantics beyond "one request, one transaction". |
+| § Idempotency | the endpoint is `POST` / `PUT` / `PATCH` / `DELETE` AND the client is expected to retry on network failures. |
 
 ---
 
@@ -163,34 +177,11 @@ For domain rules (no third-party, no `datetime.now()`, no `float`, no log), see 
 
 ### Repository Protocol method extension
 
-The base `Repository[TEntity, TId]` Protocol ships only `add` and `find_by_id`. **Every other method is added by the test that needs it** (outside-in), named after the business question being asked, not the SQL operation.
-
-```python
-class TodoListRepository(Repository[TodoList, TodoListId], Protocol):
-    """Persistence contract for the TodoList aggregate."""
-
-    async def find_active_by_owner_and_name(
-        self, owner_id: UserId, name: str
-    ) -> TodoList | None:
-        """Return the non-deleted list named ``name`` owned by ``owner_id``.
-
-        Used by CreateTodoListUseCase for the uniqueness check before
-        creation. Soft-deleted lists are ignored.
-        """
-        ...
-```
-
-For the naming rules and anti-pattern table, see `onboarding-soma` § "Repository method naming".
+The base `Repository[TEntity, TId]` Protocol ships `add` + `find_by_id`. Every other method is added by the test that needs it, named after the business question (`find_active_by_owner_and_name`), not the SQL operation (`select_where_owner_eq_and_name_eq`). Naming rules and anti-patterns: `onboarding-soma` § "Repository method naming".
 
 ### Where each new file lands
 
-Kind-first, aggregate-second. Inside a kind folder (`use_cases/`, `value_objects/`, `dtos/`, …), once **3+ files** belong to the same aggregate, group them in a sub-folder named after the aggregate and **drop the aggregate prefix from the filenames**.
-
-- 1-2 files per aggregate: stay flat (`application/use_cases/create_user.py`).
-- 3+ files per aggregate: subfolder (`application/use_cases/todo_list/create.py`, `get.py`, `list.py`, `delete.py`). Promote earlier files into the subfolder in the **same edit** — no half-state where one use case is flat and three are nested.
-- Per-kind threshold: `domain/value_objects/todo_list/` may exist while `application/use_cases/todo_list/` stays flat if there are still only 2 use cases.
-
-Full rule and examples in `onboarding-soma` § "File and folder names → Group by aggregate".
+Kind-first (`use_cases/`, `value_objects/`, `dtos/`, …), aggregate-second when 3+ files in a kind belong to the same aggregate (then group in a sub-folder and drop the prefix). Full rule + examples: `onboarding-soma` § "File and folder names → Group by aggregate".
 
 ### The use case body
 
@@ -217,29 +208,11 @@ The `UseCase[TInput, TOutput]` generic surfaces input/output types at the class 
 
 ### DTOs
 
-`application/dtos/<noun>.py`:
+`application/dtos/<noun>.py` — `<Action><Noun>Input` and `<Action><Noun>Output`, both `@dataclass(frozen=True, slots=True)`. Reference: `application/dtos/user.py`.
 
-```python
-@dataclass(frozen=True, slots=True)
-class <Action><Noun>Input:
-    ...
+### Next branches
 
-@dataclass(frozen=True, slots=True)
-class <Action><Noun>Output:
-    ...
-```
-
-User reference: `application/dtos/user.py`.
-
-### Next branches — each new business rule is a new outer red
-
-After the happy-path test is green, each additional rule is a NEW outer test:
-
-- "Refuses duplicates per owner" → adds a Protocol method + a `<Entity>AlreadyExistsError` + the check in the use case body.
-- "Emits `<aggregate>.<verb_past>`" → adds `EventBus` to `__init__` + `await self._events.publish(...)` after the write.
-- "Validates the input field" → either at the value object level (`<Field>Error` raised in `__post_init__`) or at the use case.
-
-See `tdd-workflow` for the full red-green loop.
+After the happy-path test is green, **each additional business rule is a NEW outer red** (uniqueness check, event emission, input validation, …). The red-green loop, the rule that one assertion per test fails for one reason, and the Fakes-only constraint at unit level all live in `tdd-workflow`.
 
 ---
 
@@ -284,6 +257,8 @@ async def add(self, todo_list: TodoList, /) -> None:
 ```
 
 ### Aggregates with nested children (e.g. TodoList → TodoItem[])
+
+> **Read only if your aggregate root owns a collection of child entities. Otherwise skip to §7.**
 
 When the aggregate root owns a collection of child entities, the
 persistence pattern needs three pieces:
@@ -468,6 +443,8 @@ The user reviews the resulting commit (one focused diff, easy to read) instead o
 
 # Adding a new abstraction
 
+> **Read only if your use case needs a collaborator role that does not already exist as `Clock`, `IdGenerator`, `RandomSource`, `EventBus`, `AuditLog`, or `<Entity>Repository`. Otherwise skip — the use case TDD step already covers wiring an existing collaborator.**
+
 When the use case needs a collaborator that doesn't exist yet.
 
 ## STOP — check the existing ones first
@@ -519,7 +496,9 @@ Common legitimate new abstractions:
 
 # Testing external HTTP adapters
 
-For an adapter that calls a SaaS we **cannot self-host** (Stripe, Twilio, OpenAI, Auth0, a partner webhook…), testcontainers doesn't help. The canonical pattern for the template is **`respx`** in integration tests. Unit tests still use a Fake (`tests/fakes/<role>.py`); `respx` is *only* for the integration test that exercises the real adapter against intercepted HTTP.
+> **Read only if the feature talks to an outbound SaaS you cannot self-host (Stripe, Twilio, OpenAI, Auth0, a partner webhook, …). Otherwise skip.**
+
+For an adapter that calls a SaaS we **cannot self-host**, testcontainers doesn't help. The canonical pattern for the template is **`respx`** in integration tests. Unit tests still use a Fake (`tests/fakes/<role>.py`); `respx` is *only* for the integration test that exercises the real adapter against intercepted HTTP.
 
 ## Why respx, not VCR or pytest-httpx
 
@@ -610,6 +589,8 @@ Unit tests for the use case never touch respx — they get a `FakeStripePaymentG
 
 # Transactions and events
 
+> **Read only if the feature emits a domain event, OR if you need to reason about transactional semantics beyond "one HTTP request = one transaction" (which is the default and already correct for plain CRUD). Otherwise skip — the default request-scoped session and savepoint handling are documented inline in §6 above.**
+
 ## Transaction boundary — one HTTP request = one transaction
 
 `presentation/api/dependencies/common.py::get_session` opens both an `AsyncSession` and an outer transaction:
@@ -697,6 +678,8 @@ For full row lifecycle, backoff schedule, alerting thresholds, and manual replay
 ---
 
 # Idempotency
+
+> **Read only if your new endpoint writes (POST / PUT / PATCH / DELETE) AND the client is expected to retry on network failures. Pure GET endpoints, and endpoints whose clients never retry, do not need this section.**
 
 The `IdempotencyMiddleware` lets clients retry POST/PUT/PATCH/DELETE without double-effects. Clients add the header `Idempotency-Key: <random-uuid>` on retry-eligible writes.
 
